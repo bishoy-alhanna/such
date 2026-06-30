@@ -1,0 +1,24 @@
+# Secrets
+.env
+*.env
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Node
+node_modules/
+dist/
+npm-debug.log*
+
+# macOS
+.DS_Store
+
+# Claude Code local settings
+.claude/
+
+# Mobile (nested git repo — add as submodule separately)
+mobile/

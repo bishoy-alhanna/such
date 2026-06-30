@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-YourPostgresPassword}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - shepherdcare-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api:
+    build:
+      context: ./backend/ShepherdCare.Api
+      dockerfile: Dockerfile
+    restart: on-failure
+    environment:
+      CONNECTION_STRING: Host=db;Database=shepherdcare;Username=postgres;Password=${POSTGRES_PASSWORD:-YourPostgresPassword}
+      JWT_SECRET: ${JWT_SECRET:-change_me_at_least_32_chars_long_!!}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:80
+      # ── Email / weekly digest (set these in .env or your deployment secrets) ──
+      # SMTP_HOST: smtp.gmail.com
+      # SMTP_PORT: 587
+      # SMTP_USER: your-address@gmail.com
+      # SMTP_PASS: your-app-password
+      # SMTP_FROM: your-address@gmail.com
+      # SMTP_TLS: "true"
+      # DIGEST_DAY: Monday        # DayOfWeek name — default Monday
+      # DIGEST_HOUR_UTC: "6"      # UTC hour to send — default 6 (= 8am Egypt time)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_TLS: ${SMTP_TLS:-true}
+      DIGEST_DAY: ${DIGEST_DAY:-Monday}
+      DIGEST_HOUR_UTC: ${DIGEST_HOUR_UTC:-6}
+    ports:
+      - '5001:80'
+    volumes:
+      - uploads:/app/wwwroot/uploads
+    networks:
+      - shepherdcare-net
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend/shepherdcare-web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+    ports:
+      - '8080:80'
+    networks:
+      - shepherdcare-net
+    depends_on:
+      - api
+
+networks:
+  shepherdcare-net:
+
+volumes:
+  pgdata:
+  uploads:

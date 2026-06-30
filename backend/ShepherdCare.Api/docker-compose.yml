@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-YourPostgresPassword}
+      POSTGRES_DB: shepherdcare
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - shepherdcare-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d shepherdcare"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api:
+    image: shepherdcare-api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: on-failure
+    environment:
+      CONNECTION_STRING: Host=db;Database=shepherdcare;Username=postgres;Password=${POSTGRES_PASSWORD:-YourPostgresPassword}
+      JWT_SECRET: ${JWT_SECRET:-change_me_at_least_32_chars_long_!!}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      ASPNETCORE_ENVIRONMENT: Development
+    ports:
+      - '5000:80'
+    volumes:
+      - uploads:/app/wwwroot/uploads
+    networks:
+      - shepherdcare-net
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: shepherdcare-frontend:latest
+    build:
+      context: ../../frontend/shepherdcare-web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3000:80'
+    networks:
+      - shepherdcare-net
+    depends_on:
+      - api
+
+networks:
+  shepherdcare-net:
+
+volumes:
+  pgdata:
+  uploads:
