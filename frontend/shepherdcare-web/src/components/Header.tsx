@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { useT } from '../i18n'
 import NotificationBell from './NotificationBell'
@@ -13,16 +13,30 @@ const SIDEBAR_MINI = 56
 export default function Header() {
   const auth = useAuth()
   const nav  = useNavigate()
+  const location = useLocation()
   const { t, lang, setLang } = useT()
   const [collapsed, setCollapsed] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
-  const w = collapsed ? SIDEBAR_MINI : SIDEBAR_FULL
+  const sidebarW = collapsed ? SIDEBAR_MINI : SIDEBAR_FULL
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  // Close drawer on navigation
+  useEffect(() => {
+    if (isMobile) setMobileOpen(false)
+  }, [location.pathname])
 
   // Push page content right via a CSS variable so pages need zero changes
   useEffect(() => {
-    document.documentElement.style.setProperty('--sidebar-w', `${w}px`)
+    document.documentElement.style.setProperty('--sidebar-w', isMobile ? '0px' : `${sidebarW}px`)
     return () => { document.documentElement.style.setProperty('--sidebar-w', '0px') }
-  }, [w])
+  }, [sidebarW, isMobile])
 
   const logout = () => { auth.logout(); nav('/login') }
 
@@ -89,11 +103,25 @@ export default function Header() {
   ]
 
   return (
-    <aside className="sidebar" style={{ width: w }}>
+    <>
+      {/* Mobile hamburger — only shown when drawer is closed */}
+      {isMobile && !mobileOpen && (
+        <button className="mobile-menu-btn" onClick={() => setMobileOpen(true)}>☰</button>
+      )}
+
+      {/* Mobile backdrop */}
+      {isMobile && mobileOpen && (
+        <div className="sidebar-backdrop" onClick={() => setMobileOpen(false)} />
+      )}
+
+    <aside
+      className={`sidebar${isMobile && mobileOpen ? ' mobile-open' : ''}`}
+      style={{ width: isMobile ? SIDEBAR_FULL : sidebarW }}
+    >
 
       {/* Logo */}
       <div className="sidebar-logo">
-        {!collapsed && (
+        {(!collapsed || isMobile) && (
           <div style={{ lineHeight: 1.2 }}>
             <div style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>ShepherdCare</div>
             <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.45)' }}>رعاية</div>
@@ -101,13 +129,13 @@ export default function Header() {
         )}
         <button
           className="sidebar-toggle"
-          onClick={() => setCollapsed(c => !c)}
+          onClick={() => isMobile ? setMobileOpen(false) : setCollapsed(c => !c)}
           title={collapsed ? t('nav.expand') : t('nav.collapse')}
-          style={{ marginInlineStart: collapsed ? 'auto' : undefined }}
+          style={{ marginInlineStart: collapsed && !isMobile ? 'auto' : undefined }}
         >
-          {collapsed
+          {isMobile ? '✕' : (collapsed
             ? (lang === 'ar' ? '‹' : '›')
-            : (lang === 'ar' ? '›' : '‹')}
+            : (lang === 'ar' ? '›' : '‹'))}
         </button>
       </div>
 
@@ -156,5 +184,6 @@ export default function Header() {
         </button>
       </div>
     </aside>
+    </>
   )
 }
