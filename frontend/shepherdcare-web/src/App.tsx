@@ -1,7 +1,33 @@
-import { useState } from 'react'
+import { Component, useState } from 'react'
+import type { ReactNode, ErrorInfo } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth'
 import ChurchSetup from './pages/ChurchSetup'
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error('App error:', error, info) }
+  render() {
+    const { error } = this.state
+    if (error) {
+      return (
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0d1a4e', padding: 24 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 32, maxWidth: 480, width: '100%' }}>
+            <h2 style={{ color: '#dc2626', marginBottom: 12 }}>Something went wrong</h2>
+            <pre style={{ fontSize: 12, color: '#374151', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {(error as Error).message}
+            </pre>
+            <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: '10px 20px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+              Reload
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 import LoginPage from './pages/Login'
 import SignupPage from './pages/Signup'
 import Dashboard from './pages/Dashboard'
@@ -97,8 +123,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }

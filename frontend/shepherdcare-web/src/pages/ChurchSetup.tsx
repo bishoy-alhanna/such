@@ -1,5 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
-import jsQR from 'jsqr'
+import { useEffect, useRef, useState } from 'react'
 import api from '../services/api'
 import { applyChurchSlug } from '../auth'
 
@@ -33,11 +32,20 @@ export default function ChurchSetup({ onSetup }: Props) {
   const canvasRef  = useRef<HTMLCanvasElement>(null)
   const streamRef  = useRef<MediaStream | null>(null)
   const rafRef     = useRef<number>(0)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const jsQRRef    = useRef<((data: Uint8ClampedArray, width: number, height: number) => any) | null>(null)
 
   // ── QR scanner ────────────────────────────────────────────────────
   const startScan = async () => {
     setError('')
     try {
+      // Lazy-load jsqr only when the camera is actually needed
+      if (!jsQRRef.current) {
+        // jsqr is a CJS module installed at Docker build time; dynamic import avoids SSR/bundle issues
+        // @ts-ignore
+        const mod = await import('jsqr')
+        jsQRRef.current = mod.default ?? (mod as any)
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
       streamRef.current = stream
       setScanning(true)
@@ -67,7 +75,7 @@ export default function ChurchSetup({ onSetup }: Props) {
         const ctx = canvas.getContext('2d')!
         ctx.drawImage(video, 0, 0)
         const img = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const code = jsQR(img.data, img.width, img.height)
+        const code = jsQRRef.current?.(img.data, img.width, img.height)
         if (code?.data) {
           stopScan()
           handleContinue(code.data)
