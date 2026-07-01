@@ -1,4 +1,4 @@
-import { Component, useState } from 'react'
+import React, { Component, useState } from 'react'
 import type { ReactNode, ErrorInfo } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth'
