@@ -41,7 +41,7 @@ function decodeToken(t: string, churchSlug?: string): UserInfo | null {
   }
 }
 
-function applyChurchSlug(slug: string | null | undefined) {
+export function applyChurchSlug(slug: string | null | undefined) {
   if (slug) {
     localStorage.setItem('churchSlug', slug)
     api.defaults.headers.common['X-Church-Slug'] = slug

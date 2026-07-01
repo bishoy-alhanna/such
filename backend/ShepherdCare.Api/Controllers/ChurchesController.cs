@@ -21,6 +21,20 @@ namespace ShepherdCare.Api.Controllers
             _tenant = tenant;
         }
 
+        // ── Public: list all active churches (for signup church picker) ──
+        [AllowAnonymous]
+        [HttpGet("public")]
+        public async Task<IActionResult> GetPublicList()
+        {
+            var churches = await _db.Churches
+                .IgnoreQueryFilters()
+                .Where(c => c.IsActive)
+                .OrderBy(c => c.Name)
+                .Select(c => new { c.Id, c.Name, c.Slug })
+                .ToListAsync();
+            return Ok(churches);
+        }
+
         // ── Public: any client can look up a church by slug (for mobile setup screen) ──
         [AllowAnonymous]
         [HttpGet("slug/{slug}")]
