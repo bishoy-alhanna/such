@@ -5,7 +5,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
 import { useAuth } from '../context/AuthContext'
-import api, { SERVER_BASE_URL } from '../services/api'
+import api, { getServerBaseUrl } from '../services/api'
 
 interface MenuItem {
   icon: string; label: string; sub?: string
@@ -101,7 +101,7 @@ export default function MoreScreen() {
       <View style={s.userCard}>
         <View style={s.avatar}>
           {photoUrl
-            ? <Image source={{ uri: `${SERVER_BASE_URL}${photoUrl}` }} style={s.avatarImg} />
+            ? <Image source={{ uri: `${getServerBaseUrl()}${photoUrl}` }} style={s.avatarImg} />
             : <Text style={s.avatarText}>{name.charAt(0)}</Text>
           }
         </View>

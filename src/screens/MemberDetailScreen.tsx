@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRoute } from '@react-navigation/native'
 import QRCode from 'react-native-qrcode-svg'
 import { useAuth } from '../context/AuthContext'
-import api, { SERVER_BASE_URL } from '../services/api'
+import api, { getServerBaseUrl } from '../services/api'
 
 interface ScoreSummary {
   totalScore: number; count: number; averageScore: number
@@ -153,7 +153,7 @@ export default function MemberDetailScreen() {
   if (!member)  return <Text style={{ textAlign: 'center', marginTop: 60, color: '#9ca3af' }}>لا توجد بيانات</Text>
 
   const initials = (member.fullName ?? '?').split(' ').map(w => w[0]).slice(0, 2).join('')
-  const photoUri = member.photoUrl ? `${SERVER_BASE_URL}${member.photoUrl}` : null
+  const photoUri = member.photoUrl ? `${getServerBaseUrl()}${member.photoUrl}` : null
 
   return (
     <View style={s.root}>

@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import QRCode from 'react-native-qrcode-svg'
 import { useAuth } from '../context/AuthContext'
-import api, { SERVER_BASE_URL } from '../services/api'
+import api, { getServerBaseUrl } from '../services/api'
 
 interface ScoreSummary {
   memberId: string; memberName: string; totalScore: number; count: number; averageScore: number
@@ -232,7 +232,7 @@ export default function ProfileScreen() {
       <View style={s.avatarSection}>
         <TouchableOpacity style={s.avatarWrap} onPress={profile ? pickAndUploadPhoto : undefined} activeOpacity={0.8}>
           {profile?.photoUrl
-            ? <Image source={{ uri: `${SERVER_BASE_URL}${profile.photoUrl}` }} style={s.avatarImg} />
+            ? <Image source={{ uri: `${getServerBaseUrl()}${profile.photoUrl}` }} style={s.avatarImg} />
             : <View style={s.avatar}><Text style={s.avatarText}>{displayName[0]?.toUpperCase() ?? '?'}</Text></View>
           }
           <View style={s.cameraBtn}>
