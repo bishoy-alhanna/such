@@ -3,6 +3,7 @@ namespace ShepherdCare.Api.Models
     public class Notification
     {
         public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid ChurchId { get; set; }
         public Guid UserId { get; set; }
         public User? User { get; set; }
         public string Title { get; set; } = string.Empty;

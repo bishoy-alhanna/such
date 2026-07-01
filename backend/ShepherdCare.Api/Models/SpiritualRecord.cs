@@ -10,6 +10,7 @@ namespace ShepherdCare.Api.Models
     public class SpiritualRecord
     {
         public Guid Id { get; set; }
+        public Guid ChurchId { get; set; }
 
         public Guid MemberId { get; set; }
         public FamilyMember? Member { get; set; }

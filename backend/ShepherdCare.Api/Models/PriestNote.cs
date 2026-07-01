@@ -5,6 +5,7 @@ namespace ShepherdCare.Api.Models
     public class PriestNote
     {
         public Guid Id { get; set; }
+        public Guid ChurchId { get; set; }
         public Guid? FamilyId { get; set; }
         public Family? Family { get; set; }
         public Guid? MemberId { get; set; }

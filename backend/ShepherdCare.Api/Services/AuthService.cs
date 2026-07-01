@@ -42,6 +42,8 @@ namespace ShepherdCare.Api.Services
             };
             if (user.FamilyMemberId.HasValue)
                 claimsList.Add(new Claim("familyMemberId", user.FamilyMemberId.Value.ToString()));
+            if (user.ChurchId.HasValue)
+                claimsList.Add(new Claim("churchId", user.ChurchId.Value.ToString()));
             var claims = claimsList.ToArray();
 
             var creds = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature);

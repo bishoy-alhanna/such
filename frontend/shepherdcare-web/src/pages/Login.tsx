@@ -53,6 +53,11 @@ export default function LoginPage() {
         <p style={{ textAlign: 'center', marginTop: 16, fontSize: '0.875rem', color: '#64748b' }}>
           {t('login.newUser')} <Link to="/signup" style={{ color: '#4f46e5' }}>{t('login.createAccount')}</Link>
         </p>
+        <hr style={{ border: 'none', borderTop: '1px solid #e5e7eb', margin: '16px 0' }} />
+        <p style={{ textAlign: 'center', fontSize: '0.8rem', color: '#9ca3af' }}>
+          Are you a church administrator?{' '}
+          <Link to="/register-church" style={{ color: '#4f46e5' }}>Register your church</Link>
+        </p>
       </form>
     </div>
   )

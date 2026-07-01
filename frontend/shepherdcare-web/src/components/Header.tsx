@@ -41,13 +41,22 @@ export default function Header() {
   const logout = () => { auth.logout(); nav('/login') }
 
   const is = (role: string) => auth.hasRole(role)
-  const isAdmin    = is('SuperAdmin')
-  const isLeader   = is('ServiceLeader')
-  const isPriest   = is('Priest') || is('SeniorPriest')
-  const isServant  = is('Servant')
+  const isSysAdmin  = is('SystemAdmin')
+  const isAdmin     = is('SuperAdmin')
+  const isLeader    = is('ServiceLeader')
+  const isPriest    = is('Priest') || is('SeniorPriest')
+  const isServant   = is('Servant')
   const isDataEntry = is('DataEntry')
 
-  const groups: NavGroup[] = [
+  // SystemAdmin sees only the platform churches page — nothing church-specific
+  const groups: NavGroup[] = isSysAdmin ? [
+    {
+      label: 'Platform',
+      items: [
+        { to: '/churches', label: t('nav.churches'), icon: '⛪' },
+      ],
+    },
+  ] : [
     {
       label: t('nav.main'),
       items: [
@@ -95,9 +104,10 @@ export default function Header() {
     ...(isAdmin ? [{
       label: t('nav.admin'),
       items: [
-        { to: '/users', label: t('nav.users'),  icon: '👤' },
-        { to: '/areas', label: t('nav.areas'),  icon: '🗺'  },
-        { to: '/audit', label: t('nav.audit'),  icon: '📋' },
+        { to: '/users',        label: t('nav.users'),        icon: '👤' },
+        { to: '/areas',        label: t('nav.areas'),        icon: '🗺'  },
+        { to: '/audit',        label: t('nav.audit'),        icon: '📋' },
+        { to: '/subscription', label: t('nav.subscription'), icon: '💳' },
       ],
     }] : []),
   ]

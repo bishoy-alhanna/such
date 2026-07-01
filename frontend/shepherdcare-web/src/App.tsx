@@ -27,6 +27,10 @@ import CheckInPage from './pages/CheckIn'
 import GivingPage from './pages/Giving'
 import VolunteerPage from './pages/Volunteer'
 import ApprovalsPage from './pages/Approvals'
+import ChurchesPage from './pages/Churches'
+import RegisterChurchPage from './pages/RegisterChurch'
+import SubscriptionPage from './pages/Subscription'
+import SubscriptionBanner from './components/SubscriptionBanner'
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
   const { token } = useAuth()
@@ -34,13 +38,21 @@ function PrivateRoute({ children }: { children: JSX.Element }) {
   return children
 }
 
+function ChurchRoute({ children }: { children: JSX.Element }) {
+  const { token, hasRole } = useAuth()
+  if (!token) return <Navigate to="/login" />
+  if (hasRole('SystemAdmin')) return <Navigate to="/churches" replace />
+  return children
+}
+
 export default function App() {
   return (
     <AuthProvider>
+      <SubscriptionBanner />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-        <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+        <Route path="/" element={<ChurchRoute><Dashboard /></ChurchRoute>} />
         <Route path="/families" element={<PrivateRoute><FamiliesPage /></PrivateRoute>} />
         <Route path="/families/:id" element={<PrivateRoute><FamilyPage /></PrivateRoute>} />
         <Route path="/users" element={<PrivateRoute><UsersPage /></PrivateRoute>} />
@@ -64,6 +76,9 @@ export default function App() {
         <Route path="/giving" element={<PrivateRoute><GivingPage /></PrivateRoute>} />
         <Route path="/volunteer" element={<PrivateRoute><VolunteerPage /></PrivateRoute>} />
         <Route path="/approvals" element={<PrivateRoute><ApprovalsPage /></PrivateRoute>} />
+        <Route path="/churches" element={<PrivateRoute><ChurchesPage /></PrivateRoute>} />
+        <Route path="/subscription" element={<PrivateRoute><SubscriptionPage /></PrivateRoute>} />
+        <Route path="/register-church" element={<RegisterChurchPage />} />
       </Routes>
     </AuthProvider>
   )

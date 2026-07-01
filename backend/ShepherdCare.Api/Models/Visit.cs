@@ -5,6 +5,7 @@ namespace ShepherdCare.Api.Models
     public class Visit
     {
         public Guid Id { get; set; }
+        public Guid ChurchId { get; set; }
         
         // Visit type: HomeVisit, PhoneCall
         public string VisitType { get; set; } = string.Empty;

@@ -29,8 +29,9 @@ namespace ShepherdCare.Api.Controllers
         {
             // Check pending/disabled state before password check for specific error messages
             var existing = await _db.Users
+                .IgnoreQueryFilters()
                 .Where(u => u.Username == req.Username)
-                .Select(u => new { u.PendingApproval, u.IsActive, u.PasswordHash })
+                .Select(u => new { u.PendingApproval, u.IsActive, u.ChurchId, u.PasswordHash })
                 .FirstOrDefaultAsync();
 
             if (existing != null)
@@ -45,6 +46,40 @@ namespace ShepherdCare.Api.Controllers
                     await _audit.LogAsync(new AuditLog { Action = "LoginFailed", PerformedBy = req.Username, Entity = "User", EntityId = "", Details = "Account disabled" });
                     return Unauthorized(new { message = "Account is disabled" });
                 }
+
+                // Check church-level access (skip for SystemAdmin who has no church)
+                if (existing.ChurchId.HasValue)
+                {
+                    var church = await _db.Churches
+                        .Where(c => c.Id == existing.ChurchId.Value)
+                        .Select(c => new { c.IsActive })
+                        .FirstOrDefaultAsync();
+
+                    if (church != null && !church.IsActive)
+                    {
+                        await _audit.LogAsync(new AuditLog { Action = "LoginFailed", PerformedBy = req.Username, Entity = "User", EntityId = "", Details = "Church deactivated" });
+                        return Unauthorized(new { message = "Your church account has been deactivated. Please contact the church administrator for more information." });
+                    }
+
+                    var sub = await _db.Subscriptions
+                        .IgnoreQueryFilters()
+                        .Where(s => s.ChurchId == existing.ChurchId.Value)
+                        .Select(s => new { s.Status, s.TrialEndsAt })
+                        .FirstOrDefaultAsync();
+
+                    if (sub != null)
+                    {
+                        bool trialExpired = sub.Status == Models.SubscriptionStatus.Trial
+                                         && sub.TrialEndsAt < DateTime.UtcNow;
+                        bool suspended    = sub.Status == Models.SubscriptionStatus.Suspended;
+
+                        if (trialExpired || suspended)
+                        {
+                            await _audit.LogAsync(new AuditLog { Action = "LoginFailed", PerformedBy = req.Username, Entity = "User", EntityId = "", Details = "Subscription suspended/expired" });
+                            return Unauthorized(new { message = "Your church subscription has been suspended. Please contact the church administrator for more information." });
+                        }
+                    }
+                }
             }
 
             var user = await _auth.ValidateUserAsync(req.Username, req.Password);
@@ -56,6 +91,16 @@ namespace ShepherdCare.Api.Controllers
 
             var token = await _auth.GenerateJwtAsync(user);
             await _audit.LogAsync(new AuditLog { Action = "LoginSuccess", PerformedBy = user.Username, Entity = "User", EntityId = user.Id.ToString(), Details = "User logged in" });
+
+            string? churchSlug = null;
+            if (user.ChurchId.HasValue)
+            {
+                churchSlug = await _db.Churches
+                    .Where(c => c.Id == user.ChurchId.Value)
+                    .Select(c => c.Slug)
+                    .FirstOrDefaultAsync();
+            }
+
             return Ok(new {
                 token,
                 user = new {
@@ -63,6 +108,7 @@ namespace ShepherdCare.Api.Controllers
                     username    = user.Username,
                     displayName = user.DisplayName,
                     role        = user.Role?.Name ?? string.Empty,
+                    churchSlug,
                 }
             });
         }

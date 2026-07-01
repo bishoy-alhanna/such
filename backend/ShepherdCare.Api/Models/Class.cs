@@ -6,6 +6,7 @@ namespace ShepherdCare.Api.Models
     public class Class
     {
         public Guid Id { get; set; }
+        public Guid ChurchId { get; set; }
         public string ClassName { get; set; } = string.Empty;
         public string? AgeGroup { get; set; }
         public Guid? ServiceId { get; set; }

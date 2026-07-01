@@ -3,6 +3,7 @@ namespace ShepherdCare.Api.Models
     public class FollowUpTask
     {
         public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid ChurchId { get; set; }
         public string Title { get; set; } = string.Empty;
         public string? Notes { get; set; }
         public DateTime? DueDate { get; set; }

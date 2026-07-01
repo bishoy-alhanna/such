@@ -7,6 +7,7 @@ type UserInfo = {
   displayName?: string
   role?: string
   familyMemberId?: string
+  churchSlug?: string
 }
 
 type AuthContextType = {
@@ -20,7 +21,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 /** Decode a JWT payload into UserInfo. Returns null on any error. */
-function decodeToken(t: string): UserInfo | null {
+function decodeToken(t: string, churchSlug?: string): UserInfo | null {
   try {
     const payload = JSON.parse(atob(t.split('.')[1]))
     return {
@@ -33,9 +34,20 @@ function decodeToken(t: string): UserInfo | null {
       role:           payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']
                       || payload.role,
       familyMemberId: payload['familyMemberId'] ?? undefined,
+      churchSlug:     churchSlug ?? localStorage.getItem('churchSlug') ?? undefined,
     }
   } catch {
     return null
+  }
+}
+
+function applyChurchSlug(slug: string | null | undefined) {
+  if (slug) {
+    localStorage.setItem('churchSlug', slug)
+    api.defaults.headers.common['X-Church-Slug'] = slug
+  } else {
+    localStorage.removeItem('churchSlug')
+    delete api.defaults.headers.common['X-Church-Slug']
   }
 }
 
@@ -44,6 +56,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const stored = localStorage.getItem('token')
   if (stored) {
     api.defaults.headers.common['Authorization'] = `Bearer ${stored}`
+    applyChurchSlug(localStorage.getItem('churchSlug'))
   }
 
   const [token, setToken] = useState<string | null>(stored)
@@ -52,10 +65,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = async (username: string, password: string) => {
     const res = await api.post('/auth/login', { username, password })
     const t: string = res.data.token
+    const slug: string | undefined = res.data.user?.churchSlug
     setToken(t)
     localStorage.setItem('token', t)
     api.defaults.headers.common['Authorization'] = `Bearer ${t}`
-    setUser(decodeToken(t))
+    applyChurchSlug(slug)
+    setUser(decodeToken(t, slug))
   }
 
   const logout = () => {
@@ -63,6 +78,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null)
     localStorage.removeItem('token')
     delete api.defaults.headers.common['Authorization']
+    applyChurchSlug(null)
   }
 
   const hasRole = (role: string): boolean =>

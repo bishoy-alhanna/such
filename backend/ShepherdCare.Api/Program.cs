@@ -84,11 +84,16 @@ builder.Services.AddAuthorization(options =>
     // Register as scoped so the handler can consume scoped services like AppDbContext
     builder.Services.AddScoped<IAuthorizationHandler, AssignedPriestHandler>();
 
+// Tenant context — scoped so each HTTP request gets its own instance
+builder.Services.AddScoped<TenantContext>();
+builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<TenantContext>());
+
 // Services
 builder.Services.AddScoped<IEncryptionService, AesEncryptionService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddHostedService<WeeklyDigestService>();
 builder.Services.AddHostedService<PastoralRemindersService>();
@@ -426,6 +431,114 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex) { Console.Error.WriteLine($"Warning: volunteer schema: {ex.Message}"); }
 
+    // Ensure SpiritualRecords table exists (may be missing in older dev databases)
+    try
+    {
+        db.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS ""SpiritualRecords"" (
+                ""Id""           uuid        NOT NULL PRIMARY KEY,
+                ""MemberId""     uuid        NOT NULL REFERENCES ""FamilyMembers""(""Id"") ON DELETE CASCADE,
+                ""Type""         text        NOT NULL,
+                ""Date""         timestamptz NOT NULL,
+                ""Notes""        text        NULL,
+                ""RecordedBy""   uuid        NOT NULL REFERENCES ""Users""(""Id"") ON DELETE RESTRICT,
+                ""CreatedAt""    timestamptz NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS ""IX_SpiritualRecords_MemberId"" ON ""SpiritualRecords""(""MemberId"");
+        ");
+    }
+    catch (Exception ex) { Console.Error.WriteLine($"Warning: SpiritualRecords table: {ex.Message}"); }
+
+    // Multi-tenancy: create Churches table + add ChurchId to all tenant tables (idempotent)
+    const string defaultChurch = "00000000-0000-0000-0000-000000000001";
+    try
+    {
+        db.Database.ExecuteSqlRaw($@"
+            CREATE TABLE IF NOT EXISTS ""Churches"" (
+                ""Id""           uuid        NOT NULL PRIMARY KEY,
+                ""Name""         text        NOT NULL,
+                ""Slug""         text        NOT NULL,
+                ""IsActive""     boolean     NOT NULL DEFAULT false,
+                ""LogoUrl""      text        NULL,
+                ""ContactEmail"" text        NULL,
+                ""City""         text        NULL,
+                ""Country""      text        NULL,
+                ""CreatedAt""    timestamptz NOT NULL DEFAULT NOW()
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Churches_Slug"" ON ""Churches""(""Slug"");
+            INSERT INTO ""Churches"" (""Id"",""Name"",""Slug"",""IsActive"",""CreatedAt"")
+            VALUES ('{defaultChurch}', 'Default Church', 'default', true, NOW())
+            ON CONFLICT (""Id"") DO NOTHING;
+        ");
+    }
+    catch (Exception ex) { Console.Error.WriteLine($"Warning: Churches table: {ex.Message}"); }
+
+    // Add ChurchId to each tenant table independently — skip any that don't exist yet
+    string[] tenantTables = [
+        "Families","FamilyMembers","Visits","AuditLogs","Classes","Groups",
+        "Notifications","ScoreCategories","GivingRecords","FollowUpTasks",
+        "Events","AttendanceRecords","SpiritualRecords","PriestNotes","Areas"
+    ];
+    foreach (var t in tenantTables)
+    {
+        try
+        {
+            db.Database.ExecuteSqlRaw($@"
+                ALTER TABLE ""{t}"" ADD COLUMN IF NOT EXISTS ""ChurchId"" uuid NULL;
+                UPDATE ""{t}"" SET ""ChurchId"" = '{defaultChurch}' WHERE ""ChurchId"" IS NULL;
+                ALTER TABLE ""{t}"" ALTER COLUMN ""ChurchId"" SET NOT NULL;
+            ");
+        }
+        catch (Exception ex) { Console.Error.WriteLine($"Warning: ChurchId migration for {t}: {ex.Message.Split('\n')[0]}"); }
+    }
+    // Users.ChurchId stays nullable (null = SystemAdmin)
+    try { db.Database.ExecuteSqlRaw(@"ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""ChurchId"" uuid NULL;"); }
+    catch (Exception ex) { Console.Error.WriteLine($"Warning: Users.ChurchId: {ex.Message}"); }
+
+    // Subscriptions table
+    try
+    {
+        db.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS ""Subscriptions"" (
+                ""Id""          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+                ""ChurchId""    uuid        NOT NULL REFERENCES ""Churches""(""Id""),
+                ""Plan""        int         NOT NULL DEFAULT 0,
+                ""Status""      int         NOT NULL DEFAULT 0,
+                ""BillingCycle"" int        NOT NULL DEFAULT 0,
+                ""TrialEndsAt"" timestamptz NOT NULL,
+                ""PeriodStart"" timestamptz NULL,
+                ""PeriodEnd""   timestamptz NULL,
+                ""Notes""       text        NULL,
+                ""CreatedAt""   timestamptz NOT NULL DEFAULT now(),
+                ""UpdatedAt""   timestamptz NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Subscriptions_ChurchId""
+                ON ""Subscriptions""(""ChurchId"");
+
+            -- Seed a 30-day trial for every church that doesn't have a subscription yet
+            INSERT INTO ""Subscriptions"" (""Id"", ""ChurchId"", ""Plan"", ""Status"", ""TrialEndsAt"", ""CreatedAt"")
+            SELECT gen_random_uuid(), c.""Id"", 0, 0, now() + interval '30 days', now()
+            FROM   ""Churches"" c
+            WHERE  NOT EXISTS (
+                SELECT 1 FROM ""Subscriptions"" s WHERE s.""ChurchId"" = c.""Id""
+            );");
+    }
+    catch (Exception ex) { Console.Error.WriteLine($"Warning: Subscriptions table: {ex.Message}"); }
+
+    // Assign all legacy users (pre-multi-tenancy) that have no ChurchId to the Default Church,
+    // unless they are SystemAdmin (identified by role name).
+    try
+    {
+        db.Database.ExecuteSqlRaw($@"
+            UPDATE ""Users"" u
+            SET    ""ChurchId"" = '{defaultChurch}'
+            FROM   ""Roles"" r
+            WHERE  u.""RoleId"" = r.""Id""
+              AND  r.""Name""  <> 'SystemAdmin'
+              AND  u.""ChurchId"" IS NULL;");
+    }
+    catch (Exception ex) { Console.Error.WriteLine($"Warning: Users legacy ChurchId backfill: {ex.Message}"); }
+
     // Seed initial data (best-effort). Failures here should not crash the app in containerized dev envs.
     try
     {
@@ -454,8 +567,14 @@ app.UseStaticFiles();
 // Rate limiting middleware
 app.UseSimpleRateLimit(20, TimeSpan.FromMinutes(1));
 
+// Tenant resolution — must come before auth so controllers see the resolved church
+app.UseMiddleware<TenantMiddleware>();
+
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Subscription enforcement — runs after auth so we have the tenant resolved
+app.UseMiddleware<SubscriptionMiddleware>();
 
 app.MapControllers();
 

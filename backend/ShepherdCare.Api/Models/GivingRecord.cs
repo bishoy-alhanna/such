@@ -5,6 +5,7 @@ namespace ShepherdCare.Api.Models
     public class GivingRecord
     {
         public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid ChurchId { get; set; }
         public Guid FamilyId { get; set; }
         public Family? Family { get; set; }
         public decimal Amount { get; set; }

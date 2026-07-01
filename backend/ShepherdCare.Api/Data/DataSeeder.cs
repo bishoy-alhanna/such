@@ -8,6 +8,9 @@ namespace ShepherdCare.Api.Data
 {
     public static class DataSeeder
     {
+        // Default church ID must match the one in migration 20260701_AddMultiTenancy
+        public static readonly Guid DefaultChurchId = new Guid("00000000-0000-0000-0000-000000000001");
+
         public static async Task SeedAsync(AppDbContext db)
         {
             // Ensure new tables added after initial migration exist
@@ -68,32 +71,70 @@ namespace ShepherdCare.Api.Data
             // DEV_AUTO_INIT=true, recreate the schema (EnsureDeleted + EnsureCreated) and proceed. This is safe for local/dev only.
             try
             {
+                // Seed the default church so pre-tenancy data has a home
+                if (!await db.Churches.AnyAsync(c => c.Id == DefaultChurchId))
+                {
+                    db.Churches.Add(new Church
+                    {
+                        Id        = DefaultChurchId,
+                        Name      = "Default Church",
+                        Slug      = "default",
+                        IsActive  = true,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                    await db.SaveChangesAsync();
+                }
+
                 if (!db.Roles.Any())
                 {
                     var roles = new[] {
-                        new Role { Name = "SuperAdmin", Description = "Full access" },
-                        new Role { Name = "Priest", Description = "Priest" },
-                        new Role { Name = "SeniorPriest", Description = "Senior priest" },
+                        new Role { Name = "SystemAdmin",   Description = "Cross-church platform administrator" },
+                        new Role { Name = "SuperAdmin",    Description = "Full access within a church" },
+                        new Role { Name = "Priest",        Description = "Priest" },
+                        new Role { Name = "SeniorPriest",  Description = "Senior priest" },
                         new Role { Name = "ServiceLeader", Description = "Service leader" },
-                        new Role { Name = "Servant", Description = "Servant" },
-                        new Role { Name = "Member", Description = "Church member (self-registered)" },
-                        new Role { Name = "DataEntry", Description = "Data entry" }
+                        new Role { Name = "Servant",       Description = "Servant" },
+                        new Role { Name = "Member",        Description = "Church member (self-registered)" },
+                        new Role { Name = "DataEntry",     Description = "Data entry" }
                     };
                     db.Roles.AddRange(roles);
                     await db.SaveChangesAsync();
                 }
 
-                if (!db.Users.Any())
+                // Ensure SystemAdmin role exists (in case DB already had roles seeded)
+                if (!await db.Roles.AnyAsync(r => r.Name == "SystemAdmin"))
+                {
+                    db.Roles.Add(new Role { Name = "SystemAdmin", Description = "Cross-church platform administrator" });
+                    await db.SaveChangesAsync();
+                }
+
+                // Platform-level admin — not tied to any church (ChurchId = null)
+                if (!db.Users.Any(u => u.Username == "systemadmin"))
+                {
+                    var sysRole = db.Roles.First(r => r.Name == "SystemAdmin");
+                    db.Users.Add(new User
+                    {
+                        Username     = "systemadmin",
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword("SysAdmin123!"),
+                        RoleId       = sysRole.Id,
+                        DisplayName  = "Platform Administrator",
+                        ChurchId     = null
+                    });
+                    await db.SaveChangesAsync();
+                }
+
+                // Church-level admin for Default Church
+                if (!db.Users.Any(u => u.Username == "admin"))
                 {
                     var adminRole = db.Roles.First(r => r.Name == "SuperAdmin");
-                    var user = new User
+                    db.Users.Add(new User
                     {
-                        Username = "admin",
+                        Username     = "admin",
                         PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123!"),
-                        RoleId = adminRole.Id,
-                        DisplayName = "Administrator"
-                    };
-                    db.Users.Add(user);
+                        RoleId       = adminRole.Id,
+                        DisplayName  = "Administrator",
+                        ChurchId     = DefaultChurchId
+                    });
                     await db.SaveChangesAsync();
                 }
             }

@@ -6,6 +6,7 @@ namespace ShepherdCare.Api.Models
     public class User
     {
         public Guid Id { get; set; }
+        public Guid? ChurchId { get; set; }
         public string Username { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
         public string? DisplayName { get; set; }

@@ -1,12 +1,24 @@
 using Microsoft.EntityFrameworkCore;
 using ShepherdCare.Api.Models;
+using ShepherdCare.Api.Services;
 
 namespace ShepherdCare.Api.Data
 {
     public class AppDbContext : DbContext
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+        private readonly ITenantContext? _tenant;
 
+        public AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext? tenant = null)
+            : base(options)
+        {
+            _tenant = tenant;
+        }
+
+        // Evaluated per-query by EF Core against the current DbContext instance
+        private bool TenantActive => _tenant?.IsResolved == true;
+        private Guid? TenantId => _tenant?.ChurchId;
+
+        public DbSet<Church> Churches => Set<Church>();
         public DbSet<User> Users => Set<User>();
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<Family> Families => Set<Family>();
@@ -38,10 +50,53 @@ namespace ShepherdCare.Api.Data
         public DbSet<Pledge> Pledges => Set<Pledge>();
         public DbSet<VolunteerAssignment> VolunteerAssignments => Set<VolunteerAssignment>();
         public DbSet<ServiceHours> ServiceHours => Set<ServiceHours>();
+        public DbSet<Subscription> Subscriptions => Set<Subscription>();
+
+        public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
+        {
+            // Auto-fill ChurchId on newly added tenant entities.
+            // Falls back to the default church so local dev without a slug header still works.
+            var cid = _tenant?.IsResolved == true
+                ? _tenant.ChurchId!.Value
+                : DataSeeder.DefaultChurchId;
+
+            foreach (var entry in ChangeTracker.Entries()
+                .Where(e => e.State == EntityState.Added))
+            {
+                var prop = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "ChurchId");
+                if (prop is null) continue;
+                // Only fill if not already explicitly set to a real (non-empty) value
+                if (prop.CurrentValue is null || Guid.Empty.Equals(prop.CurrentValue))
+                    prop.CurrentValue = cid;
+            }
+
+            return await base.SaveChangesAsync(ct);
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // Global tenant filters — EF Core evaluates these per-query using the current
+            // DbContext instance, so _tenant reflects the current HTTP request's church.
+            // When no tenant is resolved (health-check, migration, SystemAdmin), filters pass all rows.
+            modelBuilder.Entity<Family>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            modelBuilder.Entity<FamilyMember>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            modelBuilder.Entity<Visit>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            modelBuilder.Entity<AuditLog>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            modelBuilder.Entity<Class>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            modelBuilder.Entity<Group>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            modelBuilder.Entity<Notification>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            modelBuilder.Entity<ScoreCategory>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            modelBuilder.Entity<GivingRecord>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            modelBuilder.Entity<FollowUpTask>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            modelBuilder.Entity<Event>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            modelBuilder.Entity<AttendanceRecord>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            modelBuilder.Entity<SpiritualRecord>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            modelBuilder.Entity<PriestNote>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            modelBuilder.Entity<Area>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
+            // Users: SystemAdmin (ChurchId == null) are always visible within any tenant context
+            modelBuilder.Entity<User>().HasQueryFilter(u => !TenantActive || u.ChurchId == TenantId || u.ChurchId == null);
 
             modelBuilder.Entity<User>().HasIndex(u => u.Username).IsUnique();
             modelBuilder.Entity<Role>().HasIndex(r => r.Name).IsUnique();
