@@ -26,6 +26,10 @@ export default function LoginScreen() {
         setError('حسابك قيد المراجعة. يرجى انتظار موافقة المشرف.')
       } else if (msg.toLowerCase().includes('disabled')) {
         setError('هذا الحساب موقوف. تواصل مع المشرف.')
+      } else if (msg.toLowerCase().includes('deactivated')) {
+        setError('كنيستك تم تعطيلها. يرجى التواصل مع مسؤول الكنيسة للحصول على مزيد من المعلومات.')
+      } else if (msg.toLowerCase().includes('suspended')) {
+        setError('اشتراك كنيستك موقوف. يرجى التواصل مع مسؤول الكنيسة للحصول على مزيد من المعلومات.')
       } else {
         setError('اسم المستخدم أو كلمة المرور غير صحيحة.')
       }

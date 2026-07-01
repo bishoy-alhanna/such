@@ -1,5 +1,6 @@
 import axios from 'axios'
 import * as SecureStore from 'expo-secure-store'
+import { Alert } from 'react-native'
 
 const FALLBACK = 'https://sgch.al-hanna.com'
 
@@ -24,6 +25,16 @@ api.interceptors.response.use(
   async err => {
     if (err.response?.status === 401) {
       await SecureStore.deleteItemAsync('jwt_token')
+    }
+    if (err.response?.status === 403) {
+      const msg: string = err.response?.data?.message ?? ''
+      if (msg.toLowerCase().includes('subscription')) {
+        Alert.alert(
+          'اشتراك موقوف',
+          'اشتراك كنيستك موقوف أو منتهي. يرجى التواصل مع مسؤول الكنيسة.',
+          [{ text: 'حسناً' }]
+        )
+      }
     }
     return Promise.reject(err)
   }

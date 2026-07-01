@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useNavigation } from '@react-navigation/native'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
+import SubscriptionBanner from '../components/SubscriptionBanner'
 
 interface Stats {
   totalFamilies: number
@@ -62,6 +63,8 @@ export default function DashboardScreen() {
   }, [])
 
   return (
+    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+    <SubscriptionBanner />
     <ScrollView
       style={s.root}
       contentContainerStyle={s.container}
@@ -154,6 +157,7 @@ export default function DashboardScreen() {
         ))}
       </View>
     </ScrollView>
+    </View>
   )
 }
 
