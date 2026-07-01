@@ -108,6 +108,7 @@ export default function Header() {
         { to: '/areas',        label: t('nav.areas'),        icon: '🗺'  },
         { to: '/audit',        label: t('nav.audit'),        icon: '📋' },
         { to: '/subscription', label: t('nav.subscription'), icon: '💳' },
+        { to: '/church-qr',   label: 'Church QR',            icon: '📲' },
       ],
     }] : []),
   ]

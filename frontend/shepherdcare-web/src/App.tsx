@@ -57,6 +57,7 @@ import ApprovalsPage from './pages/Approvals'
 import ChurchesPage from './pages/Churches'
 import RegisterChurchPage from './pages/RegisterChurch'
 import SubscriptionPage from './pages/Subscription'
+import ChurchQRPage from './pages/ChurchQR'
 import SubscriptionBanner from './components/SubscriptionBanner'
 
 function PrivateRoute({ children }: { children: JSX.Element }) {
@@ -115,6 +116,7 @@ function AppContent() {
         <Route path="/approvals" element={<PrivateRoute><ApprovalsPage /></PrivateRoute>} />
         <Route path="/churches" element={<PrivateRoute><ChurchesPage /></PrivateRoute>} />
         <Route path="/subscription" element={<PrivateRoute><SubscriptionPage /></PrivateRoute>} />
+        <Route path="/church-qr" element={<PrivateRoute><ChurchQRPage /></PrivateRoute>} />
         <Route path="/register-church" element={<RegisterChurchPage />} />
       </Routes>
     </>
