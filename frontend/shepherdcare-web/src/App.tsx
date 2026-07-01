@@ -1,6 +1,7 @@
-import React from 'react'
+import { useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth'
+import ChurchSetup from './pages/ChurchSetup'
 import LoginPage from './pages/Login'
 import SignupPage from './pages/Signup'
 import Dashboard from './pages/Dashboard'
@@ -45,9 +46,19 @@ function ChurchRoute({ children }: { children: JSX.Element }) {
   return children
 }
 
-export default function App() {
+function AppContent() {
+  const { hasRole } = useAuth()
+  const [churchReady, setChurchReady] = useState(
+    // SystemAdmin has no church; everyone else must set one first
+    () => hasRole('SystemAdmin') || !!localStorage.getItem('churchSlug')
+  )
+
+  if (!churchReady) {
+    return <ChurchSetup onSetup={() => setChurchReady(true)} />
+  }
+
   return (
-    <AuthProvider>
+    <>
       <SubscriptionBanner />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -80,6 +91,14 @@ export default function App() {
         <Route path="/subscription" element={<PrivateRoute><SubscriptionPage /></PrivateRoute>} />
         <Route path="/register-church" element={<RegisterChurchPage />} />
       </Routes>
+    </>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
     </AuthProvider>
   )
 }
