@@ -227,7 +227,8 @@ namespace ShepherdCare.Api.Controllers
         }
 
         [HttpGet("class/{classId}/leaderboard")]
-        public async Task<IActionResult> GetClassLeaderboard(Guid classId, [FromQuery] Guid? categoryId)
+        public async Task<IActionResult> GetClassLeaderboard(Guid classId, [FromQuery] Guid? categoryId,
+            [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
         {
             var (ok, userId, role) = GetCaller();
             if (!ok) return Unauthorized();
@@ -236,7 +237,6 @@ namespace ShepherdCare.Api.Controllers
                 var isAssigned = await _db.Servants.AnyAsync(s => s.UserId == userId && s.ClassId == classId);
                 if (!isAssigned)
                 {
-                    // Allow members enrolled in this class
                     var myIds = await GetLinkedMemberIdsAsync(userId);
                     var isEnrolled = myIds.Count > 0 && await _db.ClassEnrollments
                         .AnyAsync(e => e.ClassId == classId && myIds.Contains(e.MemberId));
@@ -247,15 +247,18 @@ namespace ShepherdCare.Api.Controllers
             if (!memberIds.Any()) return Ok(new { classId, members = Array.Empty<object>() });
             var query = _db.ScoreEntries.Where(e => memberIds.Contains(e.MemberId));
             if (categoryId.HasValue) query = query.Where(e => e.CategoryId == categoryId.Value);
+            if (startDate.HasValue) query = query.Where(e => e.Date >= startDate.Value);
+            if (endDate.HasValue) query = query.Where(e => e.Date < endDate.Value.Date.AddDays(1));
             var scores = await query.GroupBy(e => e.MemberId).Select(g => new { memberId = g.Key, totalScore = g.Sum(e => e.ScoreValue), count = g.Count() }).ToListAsync();
             var members = await _db.FamilyMembers.Where(m => memberIds.Contains(m.Id)).Select(m => new { m.Id, m.FullName, m.PhotoUrl }).ToListAsync();
             var leaderboard = members.Select(m => { var s = scores.FirstOrDefault(x => x.memberId == m.Id); return new { memberId = m.Id, memberName = m.FullName, photoUrl = m.PhotoUrl, totalScore = s?.totalScore ?? 0, count = s?.count ?? 0 }; })
                 .OrderByDescending(x => x.totalScore).Select((x, i) => new { rank = i + 1, x.memberId, x.memberName, x.photoUrl, x.totalScore, x.count }).ToList();
-            return Ok(new { classId, categoryId, members = leaderboard });
+            return Ok(new { classId, categoryId, startDate, endDate, members = leaderboard });
         }
 
         [HttpGet("group/{groupId}/leaderboard")]
-        public async Task<IActionResult> GetGroupLeaderboard(Guid groupId, [FromQuery] Guid? categoryId)
+        public async Task<IActionResult> GetGroupLeaderboard(Guid groupId, [FromQuery] Guid? categoryId,
+            [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
         {
             var (ok, _, role) = GetCaller();
             if (!ok) return Unauthorized();
@@ -267,16 +270,19 @@ namespace ShepherdCare.Api.Controllers
             var memberIds = enrollments.Select(e => e.MemberId).Distinct().ToList();
             var scoreQuery = _db.ScoreEntries.Where(e => memberIds.Contains(e.MemberId));
             if (categoryId.HasValue) scoreQuery = scoreQuery.Where(e => e.CategoryId == categoryId.Value);
+            if (startDate.HasValue) scoreQuery = scoreQuery.Where(e => e.Date >= startDate.Value);
+            if (endDate.HasValue) scoreQuery = scoreQuery.Where(e => e.Date < endDate.Value.Date.AddDays(1));
             var scoresByMember = await scoreQuery.GroupBy(e => e.MemberId).Select(g => new { memberId = g.Key, total = g.Sum(e => e.ScoreValue) }).ToListAsync();
             var scoreLookup = scoresByMember.ToDictionary(x => x.memberId, x => x.total);
             var classLeaderboard = classes.Select(c => { var cm = enrollments.Where(e => e.ClassId == c.Id).Select(e => e.MemberId).ToList(); var total = cm.Sum(m => scoreLookup.TryGetValue(m, out var s) ? s : 0); return new { classId = c.Id, className = c.ClassName, totalScore = total, memberCount = cm.Count }; })
                 .OrderByDescending(x => x.totalScore).Select((x, i) => new { rank = i + 1, x.classId, x.className, x.totalScore, x.memberCount }).ToList();
-            return Ok(new { groupId, categoryId, classes = classLeaderboard });
+            return Ok(new { groupId, categoryId, startDate, endDate, classes = classLeaderboard });
         }
 
         // Member-vs-member within a group (open to members enrolled in the group)
         [HttpGet("group/{groupId}/member-leaderboard")]
-        public async Task<IActionResult> GetGroupMemberLeaderboard(Guid groupId, [FromQuery] Guid? categoryId)
+        public async Task<IActionResult> GetGroupMemberLeaderboard(Guid groupId, [FromQuery] Guid? categoryId,
+            [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
         {
             var (ok, userId, role) = GetCaller();
             if (!ok) return Unauthorized();
@@ -303,6 +309,8 @@ namespace ShepherdCare.Api.Controllers
 
             var scoreQuery = _db.ScoreEntries.Where(e => memberIds.Contains(e.MemberId));
             if (categoryId.HasValue) scoreQuery = scoreQuery.Where(e => e.CategoryId == categoryId.Value);
+            if (startDate.HasValue) scoreQuery = scoreQuery.Where(e => e.Date >= startDate.Value);
+            if (endDate.HasValue) scoreQuery = scoreQuery.Where(e => e.Date < endDate.Value.Date.AddDays(1));
             var scores = await scoreQuery.GroupBy(e => e.MemberId)
                 .Select(g => new { memberId = g.Key, total = g.Sum(e => e.ScoreValue), count = g.Count() }).ToListAsync();
 
@@ -324,12 +332,13 @@ namespace ShepherdCare.Api.Controllers
                 .Select((x, i) => new { rank = i + 1, x.memberId, x.memberName, x.photoUrl, x.className, x.totalScore, x.count })
                 .ToList();
 
-            return Ok(new { groupId, groupName = group?.Name, categoryId, members = leaderboard });
+            return Ok(new { groupId, groupName = group?.Name, categoryId, startDate, endDate, members = leaderboard });
         }
 
         // Convenience: returns the logged-in user's class + group leaderboards with isMe flag
         [HttpGet("my-leaderboards")]
-        public async Task<IActionResult> GetMyLeaderboards([FromQuery] Guid? categoryId)
+        public async Task<IActionResult> GetMyLeaderboards([FromQuery] Guid? categoryId,
+            [FromQuery] DateTime? startDate, [FromQuery] DateTime? endDate)
         {
             var (ok, userId, _) = GetCaller();
             if (!ok) return Unauthorized();
@@ -356,6 +365,8 @@ namespace ShepherdCare.Api.Controllers
                 var classEnrolled = await _db.ClassEnrollments.Where(e => e.ClassId == cls.Id).Select(e => e.MemberId).ToListAsync();
                 var sq = _db.ScoreEntries.Where(e => classEnrolled.Contains(e.MemberId));
                 if (categoryId.HasValue) sq = sq.Where(e => e.CategoryId == categoryId.Value);
+                if (startDate.HasValue) sq = sq.Where(e => e.Date >= startDate.Value);
+                if (endDate.HasValue) sq = sq.Where(e => e.Date < endDate.Value.Date.AddDays(1));
                 var sc = await sq.GroupBy(e => e.MemberId).Select(g => new { memberId = g.Key, total = g.Sum(e => e.ScoreValue), count = g.Count() }).ToListAsync();
                 var md = await _db.FamilyMembers.Where(m => classEnrolled.Contains(m.Id)).Select(m => new { m.Id, m.FullName, m.PhotoUrl }).ToListAsync();
                 var lb = md.Select(m => { var s = sc.FirstOrDefault(x => x.memberId == m.Id); return new { memberId = m.Id, memberName = m.FullName, photoUrl = m.PhotoUrl, totalScore = s?.total ?? 0, count = s?.count ?? 0, isMe = myIds.Contains(m.Id) }; })
@@ -374,6 +385,8 @@ namespace ShepherdCare.Api.Controllers
                 var gMemberIds = await _db.ClassEnrollments.Where(e => gClassIds.Contains(e.ClassId)).Select(e => e.MemberId).Distinct().ToListAsync();
                 var sq = _db.ScoreEntries.Where(e => gMemberIds.Contains(e.MemberId));
                 if (categoryId.HasValue) sq = sq.Where(e => e.CategoryId == categoryId.Value);
+                if (startDate.HasValue) sq = sq.Where(e => e.Date >= startDate.Value);
+                if (endDate.HasValue) sq = sq.Where(e => e.Date < endDate.Value.Date.AddDays(1));
                 var sc = await sq.GroupBy(e => e.MemberId).Select(g => new { memberId = g.Key, total = g.Sum(e => e.ScoreValue), count = g.Count() }).ToListAsync();
                 var md = await _db.FamilyMembers.Where(m => gMemberIds.Contains(m.Id)).Select(m => new { m.Id, m.FullName, m.PhotoUrl }).ToListAsync();
                 var classMap = await _db.ClassEnrollments.Where(e => gClassIds.Contains(e.ClassId))

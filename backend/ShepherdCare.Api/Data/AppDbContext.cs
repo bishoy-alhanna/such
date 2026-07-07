@@ -51,6 +51,8 @@ namespace ShepherdCare.Api.Data
         public DbSet<VolunteerAssignment> VolunteerAssignments => Set<VolunteerAssignment>();
         public DbSet<ServiceHours> ServiceHours => Set<ServiceHours>();
         public DbSet<Subscription> Subscriptions => Set<Subscription>();
+        public DbSet<ScoreTeam> ScoreTeams => Set<ScoreTeam>();
+        public DbSet<ScoreTeamMember> ScoreTeamMembers => Set<ScoreTeamMember>();
 
         public override async Task<int> SaveChangesAsync(CancellationToken ct = default)
         {
@@ -97,6 +99,8 @@ namespace ShepherdCare.Api.Data
             modelBuilder.Entity<Area>().HasQueryFilter(e => !TenantActive || e.ChurchId == TenantId);
             // Users: SystemAdmin (ChurchId == null) are always visible within any tenant context
             modelBuilder.Entity<User>().HasQueryFilter(u => !TenantActive || u.ChurchId == TenantId || u.ChurchId == null);
+
+            modelBuilder.Entity<ScoreTeamMember>().HasKey(x => new { x.ScoreTeamId, x.MemberId });
 
             modelBuilder.Entity<User>().HasIndex(u => u.Username).IsUnique();
             modelBuilder.Entity<Role>().HasIndex(r => r.Name).IsUnique();

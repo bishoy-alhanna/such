@@ -562,6 +562,28 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex) { Console.Error.WriteLine($"Warning: Users legacy ChurchId backfill: {ex.Message}"); }
 
+    // Score teams for internal competitions
+    try
+    {
+        db.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS ""ScoreTeams"" (
+                ""Id""                uuid        NOT NULL PRIMARY KEY,
+                ""Name""              text        NOT NULL,
+                ""ClassId""           uuid        NULL,
+                ""GroupId""           uuid        NULL,
+                ""StartDate""         timestamptz NULL,
+                ""EndDate""           timestamptz NULL,
+                ""CreatedByUserId""   uuid        NOT NULL,
+                ""CreatedAt""         timestamptz NOT NULL DEFAULT now()
+            );
+            CREATE TABLE IF NOT EXISTS ""ScoreTeamMembers"" (
+                ""ScoreTeamId""       uuid NOT NULL,
+                ""MemberId""          uuid NOT NULL,
+                PRIMARY KEY (""ScoreTeamId"", ""MemberId"")
+            );");
+    }
+    catch (Exception ex) { Console.Error.WriteLine($"Warning: ScoreTeams migration: {ex.Message}"); }
+
     // Seed initial data (best-effort). Failures here should not crash the app in containerized dev envs.
     try
     {
