@@ -238,6 +238,18 @@ using (var scope = app.Services.CreateScope())
         Console.Error.WriteLine($"Warning: FamilyMembers.FamilyId nullable migration failed: {ex.Message}");
     }
 
+    // Age range on Classes for Sep-15 auto-enroll
+    try
+    {
+        db.Database.ExecuteSqlRaw(
+            "ALTER TABLE \"Classes\" ADD COLUMN IF NOT EXISTS \"MinAge\" integer NULL;" +
+            "ALTER TABLE \"Classes\" ADD COLUMN IF NOT EXISTS \"MaxAge\" integer NULL;");
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Warning: Classes age range migration failed: {ex.Message}");
+    }
+
     // Sacramental milestones table
     try
     {
