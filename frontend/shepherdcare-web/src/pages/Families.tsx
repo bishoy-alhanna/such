@@ -6,6 +6,8 @@ import FamilyCreateForm from '../components/FamilyCreateForm'
 import MemberFormModal from '../components/MemberFormModal'
 import SearchBox from '../components/SearchBox'
 import Pagination from '../components/Pagination'
+import SortTh from '../components/SortTh'
+import { useSortableData } from '../hooks/useSortableData'
 import { useAuth } from '../auth'
 import { useT } from '../i18n'
 import type { Family, Member, PagedResponse } from '../types'
@@ -25,6 +27,7 @@ export default function FamiliesPage() {
   const canCreate = auth.hasRole('SuperAdmin') || auth.hasRole('DataEntry')
   const isServant = auth.hasRole('Servant')
   const isMember = auth.user?.role === 'Member'
+  const { sorted: sortedFamilies, sortKey, sortDir, requestSort } = useSortableData(families, 'familyName')
 
   // Members are auto-redirected to their own family
   useEffect(() => {
@@ -83,16 +86,16 @@ export default function FamiliesPage() {
         <table className="table">
           <thead>
             <tr>
-              <th>{t('common.name')}</th>
-              <th>{t('families.area')}</th>
-              <th>{t('families.address')}</th>
+              <SortTh label={t('common.name')} field="familyName" current={sortKey} dir={sortDir} onSort={requestSort} />
+              <SortTh label={t('families.area')} field="area" current={sortKey} dir={sortDir} onSort={requestSort} />
+              <SortTh label={t('families.address')} field="address" current={sortKey} dir={sortDir} onSort={requestSort} />
               {!isServant && <th>{t('families.phone')}</th>}
               <th>{t('families.status')}</th>
               {canCreate && <th></th>}
             </tr>
           </thead>
           <tbody>
-            {families.length === 0 && (
+            {sortedFamilies.length === 0 && (
               <tr>
                 <td colSpan={isServant ? 4 : (canCreate ? 6 : 5)} style={{ textAlign: 'center', color: '#888' }}>
                   {isServant
@@ -102,7 +105,7 @@ export default function FamiliesPage() {
                 </td>
               </tr>
             )}
-            {families.map(f => (
+            {sortedFamilies.map(f => (
               <tr key={f.id}>
                 <td>
                   <Link to={`/families/${f.id}`} style={{ color: '#4f46e5', fontWeight: 600 }}>

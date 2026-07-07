@@ -4,6 +4,8 @@ import { useAuth } from '../auth'
 import Header from '../components/Header'
 import api from '../services/api'
 import { useT } from '../i18n'
+import SortTh from '../components/SortTh'
+import { useSortableData } from '../hooks/useSortableData'
 
 interface AuditEntry {
   id: string
@@ -180,6 +182,7 @@ export default function AuditPage() {
   const [total, setTotal]       = useState(0)
   const [page, setPage]         = useState(1)
   const [loading, setLoading]   = useState(false)
+  const { sorted: sortedEntries, sortKey, sortDir, requestSort } = useSortableData(entries, 'timestamp', 'desc')
 
   const [search, setSearch]               = useState('')
   const [filterAction, setFilterAction]   = useState('')
@@ -305,12 +308,15 @@ export default function AuditPage() {
                   </colgroup>
                   <thead>
                     <tr>
-                      <th>{t('audit.timestamp')}</th><th>{t('audit.action')}</th><th>{t('audit.performedBy')}</th>
-                      <th>{t('audit.entity')}</th><th>{t('audit.details')}</th><th></th>
+                      <SortTh label={t('audit.timestamp')} field="timestamp" current={sortKey} dir={sortDir} onSort={requestSort} />
+                      <SortTh label={t('audit.action')} field="action" current={sortKey} dir={sortDir} onSort={requestSort} />
+                      <SortTh label={t('audit.performedBy')} field="performedBy" current={sortKey} dir={sortDir} onSort={requestSort} />
+                      <SortTh label={t('audit.entity')} field="entity" current={sortKey} dir={sortDir} onSort={requestSort} />
+                      <th>{t('audit.details')}</th><th></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {entries.map(entry => {
+                    {sortedEntries.map(entry => {
                       const s = actionStyle(entry.action)
                       return (
                         <tr key={entry.id}>

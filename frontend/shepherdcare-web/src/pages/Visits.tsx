@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import Header from '../components/Header';
+import SortTh from '../components/SortTh';
+import { useSortableData } from '../hooks/useSortableData';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
 
@@ -56,6 +58,7 @@ export default function Visits() {
   const isServant = auth.hasRole('Servant');
 
   const [visits, setVisits] = useState<Visit[]>([]);
+  const { sorted: sortedVisits, sortKey, sortDir, requestSort } = useSortableData(visits, 'visitDate', 'desc');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
@@ -251,10 +254,10 @@ export default function Visits() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: '#f0f0f0' }}>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>{t('visits.type')}</th>
+                  <SortTh label={t('visits.type')} field="visitType" current={sortKey} dir={sortDir} onSort={requestSort} style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }} />
                   <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>{t('visits.target')}</th>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>{t('visits.visitor')}</th>
-                  <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>{t('visits.date')}</th>
+                  <SortTh label={t('visits.visitor')} field="visitorName" current={sortKey} dir={sortDir} onSort={requestSort} style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }} />
+                  <SortTh label={t('visits.date')} field="visitDate" current={sortKey} dir={sortDir} onSort={requestSort} style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }} />
                   <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>{t('visits.purpose')}</th>
                   <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>{t('visits.outcome')}</th>
                   <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>{t('visits.followUp')}</th>
@@ -266,12 +269,12 @@ export default function Visits() {
                   <tr>
                     <td colSpan={8} style={{ padding: '20px', textAlign: 'center' }}>{t('common.loading')}</td>
                   </tr>
-                ) : visits.length === 0 ? (
+                ) : sortedVisits.length === 0 ? (
                   <tr>
                     <td colSpan={8} style={{ padding: '20px', textAlign: 'center' }}>{t('visits.noVisits')}</td>
                   </tr>
                 ) : (
-                  visits.map((visit) => (
+                  sortedVisits.map((visit) => (
                     <tr key={visit.id} style={{ borderBottom: '1px solid #eee' }}>
                       <td style={{ padding: '12px' }}>
                         {visit.visitType === 'HomeVisit' ? `🏠 ${t('visits.home')}`

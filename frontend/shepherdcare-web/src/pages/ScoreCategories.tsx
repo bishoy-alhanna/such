@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import api from '../services/api'
 import Header from '../components/Header'
+import SortTh from '../components/SortTh'
+import { useSortableData } from '../hooks/useSortableData'
 import { useAuth } from '../auth'
 import { useT } from '../i18n'
 
@@ -137,6 +139,7 @@ export default function ScoreCategoriesPage() {
   }
 
   const filtered = categories.filter(c => filterScope === 'all' || c.scope === filterScope)
+  const { sorted: sortedCategories, sortKey, sortDir, requestSort } = useSortableData(filtered, 'name')
 
   if (loading) return <div className="container"><p>{t('common.loading')}</p></div>
 
@@ -168,19 +171,19 @@ export default function ScoreCategoriesPage() {
         <table className="table">
           <thead>
             <tr>
-              <th>{t('common.name')}</th>
+              <SortTh label={t('common.name')} field="name" current={sortKey} dir={sortDir} onSort={requestSort} />
               <th>{t('scoreCategories.scope')}</th>
               <th>{t('scoreCategories.description')}</th>
-              <th style={{ width: 90, textAlign: 'center' }}>{t('scoreCategories.max')}</th>
+              <SortTh label={t('scoreCategories.max')} field="maxScore" current={sortKey} dir={sortDir} onSort={requestSort} style={{ width: 90, textAlign: 'center' }} />
               <th style={{ width: 110, textAlign: 'center' }}>{t('scoreCategories.predefined')}</th>
               {canManage && <th style={{ width: 130 }}>Actions</th>}
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && (
+            {sortedCategories.length === 0 && (
               <tr><td colSpan={6} style={{ textAlign: 'center', color: '#888' }}>No categories.</td></tr>
             )}
-            {filtered.map(cat => (
+            {sortedCategories.map(cat => (
               <tr key={cat.id}>
                 <td style={{ fontWeight: 600 }}>{cat.name}</td>
                 <td>{scopeBadge(cat)}</td>

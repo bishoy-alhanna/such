@@ -4,6 +4,8 @@ import Header from '../components/Header'
 import SearchBox from '../components/SearchBox'
 import Pagination from '../components/Pagination'
 import UserFormModal from '../components/UserFormModal'
+import SortTh from '../components/SortTh'
+import { useSortableData } from '../hooks/useSortableData'
 import { useAuth } from '../auth'
 import { useT } from '../i18n'
 import type { UserDto, PagedResponse } from '../types'
@@ -50,6 +52,9 @@ export default function UsersPage() {
 
   const auth = useAuth()
   const { t } = useT()
+
+  const { sorted: sortedUsers, sortKey: userSortKey, sortDir: userSortDir, requestSort: requestUserSort } = useSortableData(users, 'username')
+  const { sorted: sortedPending, sortKey: pendingSortKey, sortDir: pendingSortDir, requestSort: requestPendingSort } = useSortableData(pending, 'username')
 
   const load = () => {
     api.get<PagedResponse<UserDto>>('/users', { params: { q: query, page } })
@@ -162,15 +167,17 @@ export default function UsersPage() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>{t('users.username')}</th><th>{t('users.displayName')}</th><th>Role ID</th>
+                  <SortTh label={t('users.username')} field="username" current={userSortKey} dir={userSortDir} onSort={requestUserSort} />
+                  <SortTh label={t('users.displayName')} field="displayName" current={userSortKey} dir={userSortDir} onSort={requestUserSort} />
+                  <th>Role ID</th>
                   {auth.hasRole('SuperAdmin') && <th>{t('common.actions')}</th>}
                 </tr>
               </thead>
               <tbody>
-                {users.length === 0 && (
+                {sortedUsers.length === 0 && (
                   <tr><td colSpan={4} style={{ textAlign: 'center', color: '#888' }}>{t('users.noUsers')}</td></tr>
                 )}
-                {users.map(u => (
+                {sortedUsers.map(u => (
                   <tr key={u.id}>
                     <td>{u.username}</td>
                     <td>{u.displayName ?? '—'}</td>
@@ -199,10 +206,15 @@ export default function UsersPage() {
             ) : (
               <table className="table">
                 <thead>
-                  <tr><th>{t('users.username')}</th><th>{t('users.displayName')}</th><th>{t('users.registeredAt')}</th><th>{t('common.actions')}</th></tr>
+                  <tr>
+                    <SortTh label={t('users.username')} field="username" current={pendingSortKey} dir={pendingSortDir} onSort={requestPendingSort} />
+                    <SortTh label={t('users.displayName')} field="displayName" current={pendingSortKey} dir={pendingSortDir} onSort={requestPendingSort} />
+                    <SortTh label={t('users.registeredAt')} field="createdAt" current={pendingSortKey} dir={pendingSortDir} onSort={requestPendingSort} />
+                    <th>{t('common.actions')}</th>
+                  </tr>
                 </thead>
                 <tbody>
-                  {pending.map(u => (
+                  {sortedPending.map(u => (
                     <tr key={u.id}>
                       <td style={{ fontWeight: 600 }}>{u.username}</td>
                       <td>{u.displayName ?? '—'}</td>

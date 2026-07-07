@@ -4,6 +4,8 @@ import api from '../services/api'
 import Header from '../components/Header'
 import SearchBox from '../components/SearchBox'
 import Pagination from '../components/Pagination'
+import SortTh from '../components/SortTh'
+import { useSortableData } from '../hooks/useSortableData'
 import { useAuth } from '../auth'
 import { useT } from '../i18n'
 
@@ -27,6 +29,7 @@ export default function ClassesPage() {
   const auth = useAuth()
   const { t } = useT()
   const canManage = auth.hasRole('SuperAdmin') || auth.hasRole('ServiceLeader')
+  const { sorted: sortedClasses, sortKey, sortDir, requestSort } = useSortableData(classes, 'className')
 
   const [className, setClassName] = useState('')
   const [ageGroup, setAgeGroup]   = useState('')
@@ -109,19 +112,19 @@ export default function ClassesPage() {
         <table className="table">
           <thead>
             <tr>
-              <th>{t('classes.className')}</th>
-              <th>{t('classes.ageGroup')}</th>
-              <th>{t('classes.group')}</th>
-              <th>{t('classes.servants')}</th>
-              <th>{t('classes.members')}</th>
+              <SortTh label={t('classes.className')} field="className" current={sortKey} dir={sortDir} onSort={requestSort} />
+              <SortTh label={t('classes.ageGroup')} field="ageGroup" current={sortKey} dir={sortDir} onSort={requestSort} />
+              <SortTh label={t('classes.group')} field="groupName" current={sortKey} dir={sortDir} onSort={requestSort} />
+              <SortTh label={t('classes.servants')} field="servantCount" current={sortKey} dir={sortDir} onSort={requestSort} />
+              <SortTh label={t('classes.members')} field="memberCount" current={sortKey} dir={sortDir} onSort={requestSort} />
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {classes.length === 0 && (
+            {sortedClasses.length === 0 && (
               <tr><td colSpan={6} style={{ textAlign: 'center', color: '#888' }}>{t('classes.noClasses')}</td></tr>
             )}
-            {classes.map(c => (
+            {sortedClasses.map(c => (
               <tr key={c.id}>
                 <td><Link to={`/classes/${c.id}`} style={{ color: '#4f46e5', fontWeight: 600 }}>{c.className}</Link></td>
                 <td>
