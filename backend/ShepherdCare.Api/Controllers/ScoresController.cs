@@ -211,6 +211,21 @@ namespace ShepherdCare.Api.Controllers
 
         // ─── Leaderboards ─────────────────────────────────────────────────────
 
+        // Returns all member IDs linked to a user (including NationalId siblings)
+        private async Task<List<Guid>> GetLinkedMemberIdsAsync(Guid userId)
+        {
+            var memberId = await _db.Users
+                .Where(u => u.Id == userId && u.FamilyMemberId != null)
+                .Select(u => u.FamilyMemberId!.Value)
+                .FirstOrDefaultAsync();
+            if (memberId == Guid.Empty) return [];
+            var member = await _db.FamilyMembers.FindAsync(memberId);
+            if (string.IsNullOrWhiteSpace(member?.NationalId)) return [memberId];
+            return await _db.FamilyMembers
+                .Where(m => m.NationalId == member.NationalId)
+                .Select(m => m.Id).ToListAsync();
+        }
+
         [HttpGet("class/{classId}/leaderboard")]
         public async Task<IActionResult> GetClassLeaderboard(Guid classId, [FromQuery] Guid? categoryId)
         {
@@ -219,7 +234,14 @@ namespace ShepherdCare.Api.Controllers
             if (!FullAccessRoles.Contains(role))
             {
                 var isAssigned = await _db.Servants.AnyAsync(s => s.UserId == userId && s.ClassId == classId);
-                if (!isAssigned) return Forbid();
+                if (!isAssigned)
+                {
+                    // Allow members enrolled in this class
+                    var myIds = await GetLinkedMemberIdsAsync(userId);
+                    var isEnrolled = myIds.Count > 0 && await _db.ClassEnrollments
+                        .AnyAsync(e => e.ClassId == classId && myIds.Contains(e.MemberId));
+                    if (!isEnrolled) return Forbid();
+                }
             }
             var memberIds = await _db.ClassEnrollments.Where(e => e.ClassId == classId).Select(e => e.MemberId).ToListAsync();
             if (!memberIds.Any()) return Ok(new { classId, members = Array.Empty<object>() });
@@ -250,6 +272,119 @@ namespace ShepherdCare.Api.Controllers
             var classLeaderboard = classes.Select(c => { var cm = enrollments.Where(e => e.ClassId == c.Id).Select(e => e.MemberId).ToList(); var total = cm.Sum(m => scoreLookup.TryGetValue(m, out var s) ? s : 0); return new { classId = c.Id, className = c.ClassName, totalScore = total, memberCount = cm.Count }; })
                 .OrderByDescending(x => x.totalScore).Select((x, i) => new { rank = i + 1, x.classId, x.className, x.totalScore, x.memberCount }).ToList();
             return Ok(new { groupId, categoryId, classes = classLeaderboard });
+        }
+
+        // Member-vs-member within a group (open to members enrolled in the group)
+        [HttpGet("group/{groupId}/member-leaderboard")]
+        public async Task<IActionResult> GetGroupMemberLeaderboard(Guid groupId, [FromQuery] Guid? categoryId)
+        {
+            var (ok, userId, role) = GetCaller();
+            if (!ok) return Unauthorized();
+
+            var groupClassIds = await _db.Classes.Where(c => c.GroupId == groupId).Select(c => c.Id).ToListAsync();
+
+            if (!FullAccessRoles.Contains(role))
+            {
+                var isServantForGroup = await _db.Servants.AnyAsync(s => s.UserId == userId && groupClassIds.Contains(s.ClassId));
+                if (!isServantForGroup)
+                {
+                    var myIds = await GetLinkedMemberIdsAsync(userId);
+                    var isEnrolled = myIds.Count > 0 && await _db.ClassEnrollments
+                        .AnyAsync(e => groupClassIds.Contains(e.ClassId) && myIds.Contains(e.MemberId));
+                    if (!isEnrolled) return Forbid();
+                }
+            }
+
+            var group = await _db.Groups.FindAsync(groupId);
+            if (!groupClassIds.Any()) return Ok(new { groupId, groupName = group?.Name, members = Array.Empty<object>() });
+
+            var memberIds = await _db.ClassEnrollments
+                .Where(e => groupClassIds.Contains(e.ClassId)).Select(e => e.MemberId).Distinct().ToListAsync();
+
+            var scoreQuery = _db.ScoreEntries.Where(e => memberIds.Contains(e.MemberId));
+            if (categoryId.HasValue) scoreQuery = scoreQuery.Where(e => e.CategoryId == categoryId.Value);
+            var scores = await scoreQuery.GroupBy(e => e.MemberId)
+                .Select(g => new { memberId = g.Key, total = g.Sum(e => e.ScoreValue), count = g.Count() }).ToListAsync();
+
+            var memberData = await _db.FamilyMembers
+                .Where(m => memberIds.Contains(m.Id)).Select(m => new { m.Id, m.FullName, m.PhotoUrl }).ToListAsync();
+
+            var classMap = await _db.ClassEnrollments
+                .Where(e => groupClassIds.Contains(e.ClassId))
+                .Join(_db.Classes, e => e.ClassId, c => c.Id, (e, c) => new { e.MemberId, c.ClassName })
+                .ToListAsync();
+
+            var leaderboard = memberData
+                .Select(m => {
+                    var s = scores.FirstOrDefault(x => x.memberId == m.Id);
+                    var className = classMap.FirstOrDefault(x => x.MemberId == m.Id)?.ClassName;
+                    return new { memberId = m.Id, memberName = m.FullName, photoUrl = m.PhotoUrl, className, totalScore = s?.total ?? 0, count = s?.count ?? 0 };
+                })
+                .OrderByDescending(x => x.totalScore)
+                .Select((x, i) => new { rank = i + 1, x.memberId, x.memberName, x.photoUrl, x.className, x.totalScore, x.count })
+                .ToList();
+
+            return Ok(new { groupId, groupName = group?.Name, categoryId, members = leaderboard });
+        }
+
+        // Convenience: returns the logged-in user's class + group leaderboards with isMe flag
+        [HttpGet("my-leaderboards")]
+        public async Task<IActionResult> GetMyLeaderboards([FromQuery] Guid? categoryId)
+        {
+            var (ok, userId, _) = GetCaller();
+            if (!ok) return Unauthorized();
+
+            var myIds = await GetLinkedMemberIdsAsync(userId);
+            if (myIds.Count == 0) return Ok(new { myName = (string?)null, classes = Array.Empty<object>(), groups = Array.Empty<object>() });
+
+            var memberInfo = await _db.FamilyMembers.FindAsync(myIds[0]);
+            var enrollments = await _db.ClassEnrollments.Where(e => myIds.Contains(e.MemberId))
+                .Select(e => new { e.ClassId, e.MemberId }).ToListAsync();
+
+            if (!enrollments.Any()) return Ok(new { myName = memberInfo?.FullName, classes = Array.Empty<object>(), groups = Array.Empty<object>() });
+
+            var enrolledClassIds = enrollments.Select(e => e.ClassId).Distinct().ToList();
+            var myEnrolledMemberId = enrollments.First().MemberId;
+
+            var classData = await _db.Classes.Where(c => enrolledClassIds.Contains(c.Id))
+                .Select(c => new { c.Id, c.ClassName, c.GroupId }).ToListAsync();
+
+            // Per-class leaderboards
+            var classBoards = new List<object>();
+            foreach (var cls in classData)
+            {
+                var classEnrolled = await _db.ClassEnrollments.Where(e => e.ClassId == cls.Id).Select(e => e.MemberId).ToListAsync();
+                var sq = _db.ScoreEntries.Where(e => classEnrolled.Contains(e.MemberId));
+                if (categoryId.HasValue) sq = sq.Where(e => e.CategoryId == categoryId.Value);
+                var sc = await sq.GroupBy(e => e.MemberId).Select(g => new { memberId = g.Key, total = g.Sum(e => e.ScoreValue), count = g.Count() }).ToListAsync();
+                var md = await _db.FamilyMembers.Where(m => classEnrolled.Contains(m.Id)).Select(m => new { m.Id, m.FullName, m.PhotoUrl }).ToListAsync();
+                var lb = md.Select(m => { var s = sc.FirstOrDefault(x => x.memberId == m.Id); return new { memberId = m.Id, memberName = m.FullName, photoUrl = m.PhotoUrl, totalScore = s?.total ?? 0, count = s?.count ?? 0, isMe = myIds.Contains(m.Id) }; })
+                    .OrderByDescending(x => x.totalScore).Select((x, i) => new { rank = i + 1, x.memberId, x.memberName, x.photoUrl, x.totalScore, x.count, x.isMe }).ToList();
+                var me = lb.FirstOrDefault(x => x.isMe);
+                classBoards.Add(new { classId = cls.Id, className = cls.ClassName, myRank = me?.rank, myScore = me?.totalScore ?? 0, totalMembers = lb.Count, leaderboard = lb });
+            }
+
+            // Per-group leaderboards
+            var groupIds = classData.Where(c => c.GroupId.HasValue).Select(c => c.GroupId!.Value).Distinct().ToList();
+            var groupBoards = new List<object>();
+            foreach (var gid in groupIds)
+            {
+                var grp = await _db.Groups.FindAsync(gid);
+                var gClassIds = await _db.Classes.Where(c => c.GroupId == gid).Select(c => c.Id).ToListAsync();
+                var gMemberIds = await _db.ClassEnrollments.Where(e => gClassIds.Contains(e.ClassId)).Select(e => e.MemberId).Distinct().ToListAsync();
+                var sq = _db.ScoreEntries.Where(e => gMemberIds.Contains(e.MemberId));
+                if (categoryId.HasValue) sq = sq.Where(e => e.CategoryId == categoryId.Value);
+                var sc = await sq.GroupBy(e => e.MemberId).Select(g => new { memberId = g.Key, total = g.Sum(e => e.ScoreValue), count = g.Count() }).ToListAsync();
+                var md = await _db.FamilyMembers.Where(m => gMemberIds.Contains(m.Id)).Select(m => new { m.Id, m.FullName, m.PhotoUrl }).ToListAsync();
+                var classMap = await _db.ClassEnrollments.Where(e => gClassIds.Contains(e.ClassId))
+                    .Join(_db.Classes, e => e.ClassId, c => c.Id, (e, c) => new { e.MemberId, c.ClassName }).ToListAsync();
+                var lb = md.Select(m => { var s = sc.FirstOrDefault(x => x.memberId == m.Id); var cn = classMap.FirstOrDefault(x => x.MemberId == m.Id)?.ClassName; return new { memberId = m.Id, memberName = m.FullName, photoUrl = m.PhotoUrl, className = cn, totalScore = s?.total ?? 0, count = s?.count ?? 0, isMe = myIds.Contains(m.Id) }; })
+                    .OrderByDescending(x => x.totalScore).Select((x, i) => new { rank = i + 1, x.memberId, x.memberName, x.photoUrl, x.className, x.totalScore, x.count, x.isMe }).ToList();
+                var me = lb.FirstOrDefault(x => x.isMe);
+                groupBoards.Add(new { groupId = gid, groupName = grp?.Name, myRank = me?.rank, myScore = me?.totalScore ?? 0, totalMembers = lb.Count, leaderboard = lb });
+            }
+
+            return Ok(new { myMemberId = myEnrolledMemberId, myName = memberInfo?.FullName, classes = classBoards, groups = groupBoards });
         }
 
         // ─── Check duplicate ──────────────────────────────────────────────────

@@ -74,6 +74,7 @@ export default function Header() {
         { to: '/spiritual-records',  label: t('nav.spiritualRecords'), icon: '✝'  },
         ...(isAdmin || isLeader || isServant || isDataEntry
           ? [{ to: '/scores',          label: t('nav.scores'),            icon: '★'  }] : []),
+        { to: '/leaderboard',        label: 'Leaderboard',              icon: '🏆' },
         ...(isAdmin || isLeader
           ? [{ to: '/score-categories', label: t('nav.scoreCategories'), icon: '⊟' }] : []),
       ],
