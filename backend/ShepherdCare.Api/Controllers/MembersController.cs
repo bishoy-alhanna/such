@@ -25,6 +25,60 @@ namespace ShepherdCare.Api.Controllers
             _notify = notify;
         }
 
+        // GET /api/members?q=&filter=withFamily|withoutFamily&gender=Male|Female&page=1&pageSize=20
+        [HttpGet]
+        public async Task<IActionResult> GetAll(
+            [FromQuery] string? q,
+            [FromQuery] string? filter,
+            [FromQuery] string? gender,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            var callerRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
+            if (callerRole == "Member") return Forbid();
+
+            var query = _db.FamilyMembers.Include(m => m.Family).AsQueryable();
+
+            if (callerRole == "Servant" || callerRole == "DataEntry")
+            {
+                var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                             ?? User.FindFirst("sub")?.Value ?? Guid.Empty.ToString());
+                var classIds = await _db.Set<Servant>()
+                    .Where(s => s.UserId == userId).Select(s => s.ClassId).ToListAsync();
+                var allowedIds = await _db.Set<ClassEnrollment>()
+                    .Where(e => classIds.Contains(e.ClassId)).Select(e => e.MemberId).Distinct().ToListAsync();
+                query = query.Where(m => allowedIds.Contains(m.Id));
+            }
+
+            if (!string.IsNullOrWhiteSpace(q))
+                query = query.Where(m => m.FullName.Contains(q) ||
+                    (m.NationalId != null && m.NationalId.Contains(q)) ||
+                    (m.Mobile != null && m.Mobile.Contains(q)));
+
+            if (filter == "withFamily")
+                query = query.Where(m => m.FamilyId != null);
+            else if (filter == "withoutFamily")
+                query = query.Where(m => m.FamilyId == null);
+
+            if (!string.IsNullOrWhiteSpace(gender))
+                query = query.Where(m => m.Gender == gender);
+
+            var total = await query.CountAsync();
+            var items = await query
+                .OrderBy(m => m.FullName)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(m => new {
+                    m.Id, m.FullName, m.FamilyId,
+                    FamilyName = m.Family != null ? m.Family.FamilyName : (string?)null,
+                    m.Gender, m.DateOfBirth, m.Relation, m.Mobile, m.NationalId,
+                    m.Status, m.IsChild, m.PhotoUrl, m.IsServant
+                })
+                .ToListAsync();
+
+            return Ok(new { items, total, totalPages = (int)Math.Ceiling((double)total / pageSize) });
+        }
+
         [HttpGet("by-family/{familyId}")]
         public async Task<IActionResult> GetByFamily(Guid familyId)
         {

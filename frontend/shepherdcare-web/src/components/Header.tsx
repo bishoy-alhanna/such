@@ -62,6 +62,7 @@ export default function Header() {
       items: [
         { to: '/',         label: t('nav.dashboard'),  icon: '⊞' },
         { to: '/families', label: t('nav.families'),   icon: '🏠' },
+        { to: '/members',  label: 'Members',            icon: '👤' },
       ],
     },
     ...(isAdmin || isLeader || isPriest || isServant || isDataEntry ? [{

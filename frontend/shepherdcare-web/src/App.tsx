@@ -43,6 +43,7 @@ import GroupsPage from './pages/Groups'
 import ClassDetailPage from './pages/ClassDetail'
 import AuditPage from './pages/Audit'
 import MemberProfilePage from './pages/MemberProfile'
+import MembersPage from './pages/Members'
 import SpiritualRecordsPage from './pages/SpiritualRecords'
 import MapPage from './pages/Map'
 import ScoreCategoriesPage from './pages/ScoreCategories'
@@ -102,6 +103,7 @@ function AppContent() {
         <Route path="/groups" element={<PrivateRoute><GroupsPage /></PrivateRoute>} />
         <Route path="/classes/:id" element={<PrivateRoute><ClassDetailPage /></PrivateRoute>} />
         <Route path="/audit" element={<PrivateRoute><AuditPage /></PrivateRoute>} />
+        <Route path="/members" element={<PrivateRoute><MembersPage /></PrivateRoute>} />
         <Route path="/members/:id" element={<PrivateRoute><MemberProfilePage /></PrivateRoute>} />
         <Route path="/spiritual-records" element={<PrivateRoute><SpiritualRecordsPage /></PrivateRoute>} />
         <Route path="/map" element={<PrivateRoute><MapPage /></PrivateRoute>} />

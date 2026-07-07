@@ -25,9 +25,9 @@ export function useSortableData<T extends Record<string, any>>(
     })
   }, [data, sortKey, sortDir])
 
-  const requestSort = (key: keyof T) => {
+  const requestSort = (key: string) => {
     if (key === sortKey) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortKey(key); setSortDir('asc') }
+    else { setSortKey(key as keyof T); setSortDir('asc') }
   }
 
   return { sorted, sortKey: sortKey as string | null, sortDir, requestSort }
