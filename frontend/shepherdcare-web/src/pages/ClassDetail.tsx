@@ -23,7 +23,8 @@ export default function ClassDetailPage() {
   const { id } = useParams<{ id: string }>()
   const auth = useAuth()
   const { t } = useT()
-  const canManage = auth.hasRole('SuperAdmin') || auth.hasRole('ServiceLeader')
+  const canManage    = auth.hasRole('SuperAdmin') || auth.hasRole('ServiceLeader')
+  const canAutoEnroll = canManage || auth.hasRole('Priest') || auth.hasRole('SeniorPriest')
   const canEnroll = canManage || auth.hasRole('DataEntry')
   const canScore  = canManage || auth.hasRole('Servant') || auth.hasRole('DataEntry')
 
@@ -225,7 +226,7 @@ export default function ClassDetailPage() {
               )}
             </p>
           </div>
-          {canManage && (cls.minAge != null || cls.maxAge != null) && (
+          {canAutoEnroll && (cls.minAge != null || cls.maxAge != null) && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
               <button className="btn-primary" onClick={autoEnroll} disabled={autoEnrolling}
                 style={{ background: '#0891b2' }}>

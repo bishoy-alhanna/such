@@ -231,7 +231,7 @@ namespace ShepherdCare.Api.Controllers
         // ── Auto-Enroll by Age ───────────────────────────────────────────────
         // Age is calculated as of September 15 of the current year (Coptic academic year cutoff).
         [HttpPost("{id}/auto-enroll")]
-        [Authorize(Roles = "SuperAdmin,ServiceLeader")]
+        [Authorize(Roles = "SuperAdmin,ServiceLeader,Priest,SeniorPriest")]
         public async Task<IActionResult> AutoEnroll(Guid id)
         {
             var cls = await _db.Classes.FindAsync(id);
