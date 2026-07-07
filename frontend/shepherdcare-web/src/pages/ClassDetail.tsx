@@ -11,7 +11,7 @@ interface UserOption   { id: string; name: string }
 interface MemberOption { id: string; fullName: string; familyName?: string }
 
 interface ClassDetail {
-  id: string; className: string; ageGroup?: string; minAge?: number; maxAge?: number
+  id: string; className: string; ageGroup?: string; minAge?: number; maxAge?: number; gender?: string
   groupId?: string; groupName?: string
   servants: ServantRow[]; members: MemberRow[]
 }
@@ -221,6 +221,7 @@ export default function ClassDetailPage() {
               {(cls.minAge != null || cls.maxAge != null) && (
                 <span style={{ marginLeft: cls.ageGroup ? 12 : 0 }}>
                   Ages {cls.minAge ?? '?'}–{cls.maxAge ?? '?'}
+                  {cls.gender && <span style={{ marginLeft: 4, color: '#6366f1', fontWeight: 600 }}>· {cls.gender}</span>}
                   <span style={{ color: '#94a3b8', marginLeft: 4 }}>(as of Sep 15)</span>
                 </span>
               )}

@@ -6,7 +6,7 @@ import { useAuth } from '../auth'
 import { useT } from '../i18n'
 
 interface UserOption { id: string; name: string }
-interface GroupClass { id: string; className: string; ageGroup?: string; minAge?: number; maxAge?: number; servantCount: number; memberCount: number }
+interface GroupClass { id: string; className: string; ageGroup?: string; minAge?: number; maxAge?: number; gender?: string; servantCount: number; memberCount: number }
 interface Group {
   id: string; name: string
   servantUserId?: string; servantName?: string

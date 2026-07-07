@@ -66,7 +66,7 @@ namespace ShepherdCare.Api.Controllers
                 .Skip((page - 1) * pageSize).Take(pageSize)
                 .Select(c => new
                 {
-                    c.Id, c.ClassName, c.AgeGroup, c.MinAge, c.MaxAge, c.GroupId,
+                    c.Id, c.ClassName, c.AgeGroup, c.MinAge, c.MaxAge, c.Gender, c.GroupId,
                     GroupName    = c.Group != null ? c.Group.Name : null,
                     ServantCount = c.Servants.Count,
                     MemberCount  = c.ClassEnrollments.Count
@@ -98,7 +98,7 @@ namespace ShepherdCare.Api.Controllers
 
             return Ok(new
             {
-                c.Id, c.ClassName, c.AgeGroup, c.MinAge, c.MaxAge, c.GroupId,
+                c.Id, c.ClassName, c.AgeGroup, c.MinAge, c.MaxAge, c.Gender, c.GroupId,
                 GroupName = c.Group != null ? c.Group.Name : null,
                 Servants = c.Servants.Select(s => new
                 {
@@ -128,6 +128,7 @@ namespace ShepherdCare.Api.Controllers
                 AgeGroup = dto.AgeGroup,
                 MinAge = dto.MinAge,
                 MaxAge = dto.MaxAge,
+                Gender = dto.Gender,
                 ServiceId = dto.ServiceId,
                 ClassLeaderId = dto.ClassLeaderId,
                 GroupId = dto.GroupId
@@ -149,6 +150,7 @@ namespace ShepherdCare.Api.Controllers
             c.AgeGroup = dto.AgeGroup;
             c.MinAge = dto.MinAge;
             c.MaxAge = dto.MaxAge;
+            c.Gender = dto.Gender;
             c.ServiceId = dto.ServiceId;
             c.ClassLeaderId = dto.ClassLeaderId;
             c.GroupId = dto.GroupId;
@@ -245,16 +247,17 @@ namespace ShepherdCare.Api.Controllers
             // Load all church members who have a date of birth
             var members = await _db.FamilyMembers
                 .Where(m => m.DateOfBirth != null)
-                .Select(m => new { m.Id, m.DateOfBirth })
+                .Select(m => new { m.Id, m.DateOfBirth, m.Gender })
                 .ToListAsync();
 
-            // Filter by age on Sep 15 of the current year
+            // Filter by age on Sep 15 and gender
             var eligible = members
                 .Where(m => {
                     var age = AgeOnSep15(m.DateOfBirth!.Value, year);
-                    var minOk = cls.MinAge == null || age >= cls.MinAge.Value;
-                    var maxOk = cls.MaxAge == null || age <= cls.MaxAge.Value;
-                    return minOk && maxOk;
+                    var minOk    = cls.MinAge == null || age >= cls.MinAge.Value;
+                    var maxOk    = cls.MaxAge == null || age <= cls.MaxAge.Value;
+                    var genderOk = string.IsNullOrEmpty(cls.Gender) || string.Equals(m.Gender, cls.Gender, StringComparison.OrdinalIgnoreCase);
+                    return minOk && maxOk && genderOk;
                 })
                 .Select(m => m.Id)
                 .ToList();
@@ -304,6 +307,7 @@ namespace ShepherdCare.Api.Controllers
         public string? AgeGroup { get; set; }
         public int? MinAge { get; set; }
         public int? MaxAge { get; set; }
+        public string? Gender { get; set; }
         public Guid? ServiceId { get; set; }
         public Guid? ClassLeaderId { get; set; }
         public Guid? GroupId { get; set; }

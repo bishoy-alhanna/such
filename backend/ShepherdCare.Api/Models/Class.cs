@@ -17,6 +17,7 @@ namespace ShepherdCare.Api.Models
 
         public int? MinAge { get; set; }
         public int? MaxAge { get; set; }
+        public string? Gender { get; set; }  // "Male" | "Female" | null = both
 
         public List<Servant> Servants { get; set; } = new();
         public List<ClassEnrollment> ClassEnrollments { get; set; } = new();

@@ -52,6 +52,7 @@ namespace ShepherdCare.Api.Controllers
                         c.AgeGroup,
                         c.MinAge,
                         c.MaxAge,
+                        c.Gender,
                         ServantCount = c.Servants.Count,
                         MemberCount  = c.ClassEnrollments.Count
                     })
@@ -83,6 +84,7 @@ namespace ShepherdCare.Api.Controllers
                         c.AgeGroup,
                         c.MinAge,
                         c.MaxAge,
+                        c.Gender,
                         ServantCount = c.Servants.Count,
                         MemberCount  = c.ClassEnrollments.Count
                     })
@@ -130,7 +132,7 @@ namespace ShepherdCare.Api.Controllers
 
             var members = await _db.FamilyMembers
                 .Where(m => m.DateOfBirth != null)
-                .Select(m => new { m.Id, m.DateOfBirth })
+                .Select(m => new { m.Id, m.DateOfBirth, m.Gender })
                 .ToListAsync();
 
             int totalEnrolled = 0, totalSkipped = 0;
@@ -139,9 +141,12 @@ namespace ShepherdCare.Api.Controllers
             {
                 var eligible = members
                     .Where(m => {
-                        var age = AgeOnSep15(m.DateOfBirth!.Value, year);
-                        return (cls.MinAge == null || age >= cls.MinAge.Value)
-                            && (cls.MaxAge == null || age <= cls.MaxAge.Value);
+                        var age      = AgeOnSep15(m.DateOfBirth!.Value, year);
+                        var ageOk    = (cls.MinAge == null || age >= cls.MinAge.Value)
+                                    && (cls.MaxAge == null || age <= cls.MaxAge.Value);
+                        var genderOk = string.IsNullOrEmpty(cls.Gender)
+                                    || string.Equals(m.Gender, cls.Gender, StringComparison.OrdinalIgnoreCase);
+                        return ageOk && genderOk;
                     })
                     .Select(m => m.Id)
                     .ToList();

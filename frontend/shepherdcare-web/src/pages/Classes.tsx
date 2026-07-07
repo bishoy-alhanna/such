@@ -9,7 +9,7 @@ import { useT } from '../i18n'
 
 interface ClassRow {
   id: string; className: string; ageGroup?: string
-  minAge?: number; maxAge?: number
+  minAge?: number; maxAge?: number; gender?: string
   groupId?: string; groupName?: string
   servantCount: number; memberCount: number
 }
@@ -32,6 +32,7 @@ export default function ClassesPage() {
   const [ageGroup, setAgeGroup]   = useState('')
   const [minAge, setMinAge]       = useState('')
   const [maxAge, setMaxAge]       = useState('')
+  const [gender, setGender]       = useState('')
   const [groupId, setGroupId]     = useState('')
   const [formError, setFormError] = useState('')
   const [saving, setSaving]       = useState(false)
@@ -46,12 +47,13 @@ export default function ClassesPage() {
   useEffect(() => { api.get<GroupOption[]>('/groups').then(r => setGroups(r.data)).catch(() => {}) }, [])
 
   const openCreate = () => {
-    setEditClass(null); setClassName(''); setAgeGroup(''); setMinAge(''); setMaxAge(''); setGroupId(''); setFormError(''); setShowForm(true)
+    setEditClass(null); setClassName(''); setAgeGroup(''); setMinAge(''); setMaxAge(''); setGender(''); setGroupId(''); setFormError(''); setShowForm(true)
   }
   const openEdit = (c: ClassRow) => {
     setEditClass(c); setClassName(c.className); setAgeGroup(c.ageGroup ?? '')
     setMinAge(c.minAge != null ? String(c.minAge) : '')
     setMaxAge(c.maxAge != null ? String(c.maxAge) : '')
+    setGender(c.gender ?? '')
     setGroupId(c.groupId ?? ''); setFormError(''); setShowForm(true)
   }
 
@@ -63,13 +65,13 @@ export default function ClassesPage() {
       return setFormError('Min age cannot be greater than max age.')
     setSaving(true); setFormError('')
     const payload = { className: className.trim(), ageGroup: ageGroup || undefined,
-      minAge: minAgeNum, maxAge: maxAgeNum, groupId: groupId || undefined }
+      minAge: minAgeNum, maxAge: maxAgeNum, gender: gender || undefined, groupId: groupId || undefined }
     try {
       if (editClass) {
         await api.put(`/classes/${editClass.id}`, payload)
         setClasses(prev => prev.map(c => c.id === editClass.id
           ? { ...c, className: className.trim(), ageGroup: ageGroup || undefined,
-              minAge: minAgeNum, maxAge: maxAgeNum,
+              minAge: minAgeNum, maxAge: maxAgeNum, gender: gender || undefined,
               groupId: groupId || undefined, groupName: groups.find(g => g.id === groupId)?.name } : c))
       } else {
         await api.post('/classes', payload)
@@ -126,7 +128,7 @@ export default function ClassesPage() {
                   {c.ageGroup ?? '—'}
                   {(c.minAge != null || c.maxAge != null) && (
                     <span style={{ marginLeft: 6, fontSize: 12, color: '#6366f1', fontWeight: 600 }}>
-                      ({c.minAge ?? '?'}–{c.maxAge ?? '?'} yrs)
+                      ({c.minAge ?? '?'}–{c.maxAge ?? '?'} yrs{c.gender ? `, ${c.gender}` : ''})
                     </span>
                   )}
                 </td>
@@ -170,9 +172,9 @@ export default function ClassesPage() {
               </div>
               <div style={{ marginTop: 8 }}>
                 <label style={{ fontWeight: 600, fontSize: 13, color: '#555' }}>
-                  Age range <span style={{ fontWeight: 400, color: '#888' }}>(as of Sep 15 — for auto-enroll)</span>
+                  Auto-enroll criteria <span style={{ fontWeight: 400, color: '#888' }}>(age as of Sep 15)</span>
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 4 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 4 }}>
                   <div>
                     <label>Min age</label>
                     <input type="number" min={0} max={120} value={minAge}
@@ -182,6 +184,14 @@ export default function ClassesPage() {
                     <label>Max age</label>
                     <input type="number" min={0} max={120} value={maxAge}
                       onChange={e => setMaxAge(e.target.value)} placeholder="e.g. 12" />
+                  </div>
+                  <div>
+                    <label>Gender</label>
+                    <select value={gender} onChange={e => setGender(e.target.value)}>
+                      <option value="">Both</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
                   </div>
                 </div>
               </div>
