@@ -7,7 +7,7 @@ import PriestNoteCreateForm from '../components/PriestNoteCreateForm'
 import { useAuth } from '../auth'
 import { useT } from '../i18n'
 import type { Family, Member, PriestNote } from '../types'
-import { formatAge } from '../utils/ageDisplay'
+import { formatAge, formatServiceAge, sep15RefYear } from '../utils/ageDisplay'
 interface FamilyLink {
   id: string
   linkedFamilyId: string
@@ -211,7 +211,17 @@ export default function FamilyPage() {
     }
   }
 
-  const age = (dob?: string) => formatAge(dob)
+  const ageDisplay = (dob?: string) => {
+    if (!dob) return <span>—</span>
+    return (
+      <div>
+        <div>{formatAge(dob)}</div>
+        <div style={{ fontSize: '0.78rem', color: '#6366f1' }}>
+          {formatServiceAge(dob)} <span style={{ color: '#94a3b8' }}>Sep {sep15RefYear()}</span>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) return <div className="container"><p>{t('common.loading')}</p></div>
   if (!family)  return <div className="container"><p>Family not found.</p></div>
@@ -291,7 +301,7 @@ export default function FamilyPage() {
                 </td>
                 <td>{m.relation ?? '—'}</td>
                 <td>{m.gender ?? '—'}</td>
-                <td>{age(m.dateOfBirth)}</td>
+                <td>{ageDisplay(m.dateOfBirth)}</td>
                 <td>
                   {m.mobile
                     ? m.mobile

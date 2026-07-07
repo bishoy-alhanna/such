@@ -6,7 +6,7 @@ import MemberFormModal from '../components/MemberFormModal'
 import QRCodeDisplay from '../components/QRCodeDisplay'
 import { useAuth } from '../auth'
 import type { Member } from '../types'
-import { formatAge } from '../utils/ageDisplay'
+import { formatAge, formatServiceAge, sep15RefYear } from '../utils/ageDisplay'
 
 interface ServantAssignment { id: string; classId: string; className: string }
 interface ServantInfo { username: string | null; userId: string | null; assignments: ServantAssignment[] }
@@ -333,6 +333,7 @@ export default function MemberProfilePage() {
   const photoSrc = member.photoUrl || null
 
   const memberAge = formatAge(member.dateOfBirth)
+  const memberServiceAge = formatServiceAge(member.dateOfBirth)
 
   return (
     <div>
@@ -380,7 +381,14 @@ export default function MemberProfilePage() {
             <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: '6px 20px', fontSize: '0.88rem', color: '#6b7280' }}>
               {member.relation && <span>👥 {RELATION_LABELS[member.relation] ?? member.relation}</span>}
               {member.gender && <span>{member.gender === 'Male' ? '♂ ذكر' : '♀ أنثى'}</span>}
-              {member.dateOfBirth && <span>🎂 {memberAge}{member.dateOfBirth ? ` (${fmt(member.dateOfBirth)})` : ''}</span>}
+              {member.dateOfBirth && (
+                <span>
+                  🎂 {memberAge} <span style={{ color: '#94a3b8', fontSize: '0.82em' }}>({fmt(member.dateOfBirth)})</span>
+                  <span style={{ marginLeft: 8, color: '#6366f1', fontSize: '0.85em', fontWeight: 600 }}>
+                    · Service: {memberServiceAge} <span style={{ fontWeight: 400, color: '#94a3b8' }}>(Sep {sep15RefYear()})</span>
+                  </span>
+                </span>
+              )}
               {member.isChild && <span>👶 طفل</span>}
             </div>
 
