@@ -21,6 +21,15 @@ namespace ShepherdCare.Api.Controllers
             _audit = audit;
         }
 
+        // Age as of Sep 15 of the given year (mirrors ClassesController)
+        private static int AgeOnSep15(DateTime dob, int year)
+        {
+            var refDate = new DateTime(year, 9, 15);
+            var age = refDate.Year - dob.Year;
+            if (dob.Date > refDate.AddYears(-age)) age--;
+            return age;
+        }
+
         // GET /api/groups
         [HttpGet]
         public async Task<IActionResult> GetAll()
@@ -41,6 +50,8 @@ namespace ShepherdCare.Api.Controllers
                         c.Id,
                         c.ClassName,
                         c.AgeGroup,
+                        c.MinAge,
+                        c.MaxAge,
                         ServantCount = c.Servants.Count,
                         MemberCount  = c.ClassEnrollments.Count
                     })
@@ -70,6 +81,8 @@ namespace ShepherdCare.Api.Controllers
                         c.Id,
                         c.ClassName,
                         c.AgeGroup,
+                        c.MinAge,
+                        c.MaxAge,
                         ServantCount = c.Servants.Count,
                         MemberCount  = c.ClassEnrollments.Count
                     })
@@ -78,6 +91,87 @@ namespace ShepherdCare.Api.Controllers
 
             if (g == null) return NotFound();
             return Ok(g);
+        }
+
+        // POST /api/groups/{id}/auto-enroll — enroll by age into all classes in this group
+        [HttpPost("{id}/auto-enroll")]
+        [Authorize(Roles = "SuperAdmin,ServiceLeader,Priest,SeniorPriest")]
+        public async Task<IActionResult> AutoEnrollGroup(Guid id)
+        {
+            var classes = await _db.Classes
+                .Where(c => c.GroupId == id && (c.MinAge != null || c.MaxAge != null))
+                .ToListAsync();
+
+            if (!classes.Any())
+                return BadRequest("No classes with an age range found in this group.");
+
+            return Ok(await RunAutoEnroll(classes));
+        }
+
+        // POST /api/groups/auto-enroll-all — enroll by age into every class across all groups
+        [HttpPost("auto-enroll-all")]
+        [Authorize(Roles = "SuperAdmin,ServiceLeader,Priest,SeniorPriest")]
+        public async Task<IActionResult> AutoEnrollAll()
+        {
+            var classes = await _db.Classes
+                .Where(c => c.MinAge != null || c.MaxAge != null)
+                .ToListAsync();
+
+            if (!classes.Any())
+                return BadRequest("No classes with an age range configured.");
+
+            return Ok(await RunAutoEnroll(classes));
+        }
+
+        private async Task<object> RunAutoEnroll(List<Class> classes)
+        {
+            var year = DateTime.UtcNow.Year;
+            var academicYear = year.ToString();
+
+            var members = await _db.FamilyMembers
+                .Where(m => m.DateOfBirth != null)
+                .Select(m => new { m.Id, m.DateOfBirth })
+                .ToListAsync();
+
+            int totalEnrolled = 0, totalSkipped = 0;
+
+            foreach (var cls in classes)
+            {
+                var eligible = members
+                    .Where(m => {
+                        var age = AgeOnSep15(m.DateOfBirth!.Value, year);
+                        return (cls.MinAge == null || age >= cls.MinAge.Value)
+                            && (cls.MaxAge == null || age <= cls.MaxAge.Value);
+                    })
+                    .Select(m => m.Id)
+                    .ToList();
+
+                if (!eligible.Any()) continue;
+
+                var alreadyEnrolled = await _db.ClassEnrollments
+                    .Where(e => e.ClassId == cls.Id && eligible.Contains(e.MemberId))
+                    .Select(e => e.MemberId)
+                    .ToListAsync();
+
+                var toEnroll = eligible.Except(alreadyEnrolled).ToList();
+                totalSkipped += alreadyEnrolled.Count;
+
+                foreach (var memberId in toEnroll)
+                    _db.ClassEnrollments.Add(new ClassEnrollment
+                        { Id = Guid.NewGuid(), ClassId = cls.Id, MemberId = memberId, AcademicYear = academicYear });
+
+                totalEnrolled += toEnroll.Count;
+            }
+
+            if (totalEnrolled > 0) await _db.SaveChangesAsync();
+
+            return new
+            {
+                Enrolled = totalEnrolled,
+                Skipped  = totalSkipped,
+                Classes  = classes.Count,
+                Message  = $"Enrolled {totalEnrolled} member(s) across {classes.Count} class(es). {totalSkipped} already enrolled."
+            };
         }
 
         // POST /api/groups

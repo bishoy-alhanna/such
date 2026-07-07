@@ -6,7 +6,7 @@ import { useAuth } from '../auth'
 import { useT } from '../i18n'
 
 interface UserOption { id: string; name: string }
-interface GroupClass { id: string; className: string; ageGroup?: string; servantCount: number; memberCount: number }
+interface GroupClass { id: string; className: string; ageGroup?: string; minAge?: number; maxAge?: number; servantCount: number; memberCount: number }
 interface Group {
   id: string; name: string
   servantUserId?: string; servantName?: string
@@ -27,7 +27,13 @@ export default function GroupsPage() {
   const [error, setError]         = useState('')
   const auth = useAuth()
   const { t } = useT()
-  const canManage = auth.hasRole('SuperAdmin') || auth.hasRole('ServiceLeader')
+  const canManage     = auth.hasRole('SuperAdmin') || auth.hasRole('ServiceLeader')
+  const canAutoEnroll = canManage || auth.hasRole('Priest') || auth.hasRole('SeniorPriest')
+
+  const [groupEnrolling, setGroupEnrolling] = useState<Record<string, boolean>>({})
+  const [groupEnrollMsg, setGroupEnrollMsg] = useState<Record<string, string>>({})
+  const [allEnrolling, setAllEnrolling]     = useState(false)
+  const [allEnrollMsg, setAllEnrollMsg]     = useState('')
 
   const [categories, setCategories]               = useState<ScoreCategory[]>([])
   const [expandedScores, setExpandedScores]       = useState<Record<string, boolean>>({})
@@ -101,6 +107,31 @@ export default function GroupsPage() {
     setGroups(prev => prev.filter(g => g.id !== id))
   }
 
+  const autoEnrollGroup = async (groupId: string, groupName: string) => {
+    if (!confirm(`Auto-enroll members by age into all classes in "${groupName}"?`)) return
+    setGroupEnrolling(prev => ({ ...prev, [groupId]: true }))
+    setGroupEnrollMsg(prev => ({ ...prev, [groupId]: '' }))
+    try {
+      const r = await api.post<{ message: string }>(`/groups/${groupId}/auto-enroll`)
+      setGroupEnrollMsg(prev => ({ ...prev, [groupId]: r.data.message }))
+    } catch (e: any) {
+      setGroupEnrollMsg(prev => ({ ...prev, [groupId]: e?.response?.data?.title ?? 'Auto-enroll failed.' }))
+    }
+    setGroupEnrolling(prev => ({ ...prev, [groupId]: false }))
+  }
+
+  const autoEnrollAll = async () => {
+    if (!confirm('Auto-enroll members by age into ALL classes across ALL groups?')) return
+    setAllEnrolling(true); setAllEnrollMsg('')
+    try {
+      const r = await api.post<{ message: string }>('/groups/auto-enroll-all')
+      setAllEnrollMsg(r.data.message)
+    } catch (e: any) {
+      setAllEnrollMsg(e?.response?.data?.title ?? 'Auto-enroll failed.')
+    }
+    setAllEnrolling(false)
+  }
+
   if (loading) return <div className="container"><p>{t('common.loading')}</p></div>
 
   return (
@@ -109,8 +140,22 @@ export default function GroupsPage() {
       <div className="container">
         <div className="page-header">
           <h2>{t('groups.title')}</h2>
-          {canManage && <button className="btn-primary" onClick={openCreate}>{t('groups.newGroup')}</button>}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {canAutoEnroll && (
+              <button className="btn-primary" onClick={autoEnrollAll} disabled={allEnrolling}
+                style={{ background: '#0891b2' }}>
+                {allEnrolling ? 'Enrolling…' : '⚡ Auto-Enroll All'}
+              </button>
+            )}
+            {canManage && <button className="btn-primary" onClick={openCreate}>{t('groups.newGroup')}</button>}
+          </div>
         </div>
+        {allEnrollMsg && (
+          <div style={{ marginBottom: 12, padding: '10px 14px', background: '#f0f9ff',
+            border: '1px solid #bae6fd', borderRadius: 8, color: '#0369a1', fontSize: 14 }}>
+            {allEnrollMsg}
+          </div>
+        )}
 
         {groups.length === 0 && <p style={{ color: '#888' }}>{t('groups.noGroups')}</p>}
 
@@ -124,6 +169,13 @@ export default function GroupsPage() {
                   &ensp;·&ensp; {g.classes.length} class{g.classes.length !== 1 ? 'es' : ''}
                 </div>
               </div>
+              {canAutoEnroll && g.classes.some(c => c.minAge != null || c.maxAge != null) && (
+                <button className="btn-sm" onClick={() => autoEnrollGroup(g.id, g.name)}
+                  disabled={groupEnrolling[g.id]}
+                  style={{ background: '#0891b2', color: '#fff', border: 'none' }}>
+                  {groupEnrolling[g.id] ? 'Enrolling…' : '⚡ Auto-Enroll'}
+                </button>
+              )}
               {canManage && <>
                 <button className="btn-sm" onClick={() => openEdit(g)}>{t('common.edit')}</button>
                 <button className="btn-sm btn-danger" onClick={() => deleteGroup(g.id)}>{t('common.delete')}</button>
@@ -153,6 +205,13 @@ export default function GroupsPage() {
                   ))}
                 </tbody>
               </table>
+            )}
+
+            {groupEnrollMsg[g.id] && (
+              <div style={{ marginBottom: 10, padding: '8px 12px', background: '#f0f9ff',
+                border: '1px solid #bae6fd', borderRadius: 8, color: '#0369a1', fontSize: 13 }}>
+                {groupEnrollMsg[g.id]}
+              </div>
             )}
 
             {/* Group score leaderboard */}
