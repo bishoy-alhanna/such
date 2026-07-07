@@ -5,7 +5,8 @@ import type { Member } from '../types'
 import { useT } from '../i18n'
 
 interface Props {
-  familyId: string
+  /** Omit to create/edit a standalone member with no family yet. */
+  familyId?: string
   member?: Member | null
   onSaved: (m: Member) => void
   onCancel: () => void
@@ -44,6 +45,10 @@ export default function MemberFormModal({ familyId, member, onSaved, onCancel }:
   const { t } = useT()
   const isEdit = !!member
   const [tab, setTab] = useState<Tab>('basic')
+  // No family yet (new standalone member, or editing one that hasn't been placed in a family):
+  // let the admin optionally supply the father's National ID to find/create the family.
+  const showFatherField = !familyId
+  const [fatherNationalId, setFatherNationalId] = useState('')
 
   const TABS: { key: Tab; label: string; icon: string }[] = [
     { key: 'basic',   label: t('members.basicInfo'),  icon: '👤' },
@@ -134,10 +139,17 @@ export default function MemberFormModal({ familyId, member, onSaved, onCancel }:
       setSaving(false)
       return
     }
+    if (fatherNationalId.trim() && !/^\d{14}$/.test(fatherNationalId.trim())) {
+      setErrors({ FatherNationalId: ['الرقم القومي للأب يجب أن يكون 14 رقماً بالضبط.'] })
+      setTab('basic')
+      setSaving(false)
+      return
+    }
     setSaving(true)
     setErrors({})
     const payload = {
       familyId,
+      fatherNationalId: showFatherField ? (fatherNationalId.trim() || undefined) : undefined,
       fullName, gender: gender || undefined, dateOfBirth: dob || undefined,
       relation: relation || undefined, mobile: mobile || undefined,
       isChild, notes: notes || undefined,
@@ -163,7 +175,10 @@ export default function MemberFormModal({ familyId, member, onSaved, onCancel }:
         if (putRes.data?.servantUser) {
           setNewCredentials(putRes.data.servantUser)
         }
-        onSaved({ ...member!, ...payload } as Member)
+        // Refetch rather than optimistically merge `payload`: when a father's National ID was
+        // supplied, the server may resolve/create a FamilyId that isn't reflected locally.
+        const fresh = await api.get<Member>(`/members/${member!.id}`)
+        onSaved(fresh.data)
       } else {
         const res = await api.post<Member & { servantUser?: { username: string; defaultPassword: string } }>('/members', payload)
         let saved = res.data
@@ -301,6 +316,20 @@ export default function MemberFormModal({ familyId, member, onSaved, onCancel }:
                     {errors.NationalId && <div className="error">{errors.NationalId.join(', ')}</div>}
                   </Field>
                 </Row>
+
+                {showFatherField && (
+                  <Field label="الرقم القومي للأب (اختياري)">
+                    <input value={fatherNationalId}
+                      onChange={e => setFatherNationalId(e.target.value.replace(/\D/g, '').slice(0, 14))}
+                      placeholder="14 رقم — اتركه فارغاً إذا لم تتوفر أسرة بعد" maxLength={14} inputMode="numeric"
+                      style={{ ...inp.style, fontFamily: 'monospace', letterSpacing: '0.1em' }} />
+                    {errors.FatherNationalId && <div className="error">{errors.FatherNationalId.join(', ')}</div>}
+                    <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: 4 }}>
+                      إذا كان الأب مسجلاً بالفعل سيتم إضافة الفرد إلى أسرته، وإلا سيتم إنشاء أسرة جديدة.
+                      يمكن ترك الحقل فارغاً وإضافة الفرد لاحقاً إلى أسرة عند التعديل.
+                    </div>
+                  </Field>
+                )}
 
                 {/* Photo upload */}
                 <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>

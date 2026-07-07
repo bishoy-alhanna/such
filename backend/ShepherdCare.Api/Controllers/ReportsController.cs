@@ -483,7 +483,7 @@ namespace ShepherdCare.Api.Controllers
             else if (userRole == "Priest")
             {
                 var familyIds = await _db.Families.Where(f => f.AssignedPriestId == uid).Select(f => f.Id).ToListAsync();
-                memberQuery = memberQuery.Where(m => familyIds.Contains(m.FamilyId));
+                memberQuery = memberQuery.Where(m => m.FamilyId != null && familyIds.Contains(m.FamilyId!.Value));
             }
             else if (userRole == "ServiceLeader")
             {
@@ -526,7 +526,7 @@ namespace ShepherdCare.Api.Controllers
             if (userRole == "Priest")
             {
                 var fids = await _db.Families.Where(f => f.AssignedPriestId == uid).Select(f => f.Id).ToListAsync();
-                return await _db.FamilyMembers.Where(m => fids.Contains(m.FamilyId)).Select(m => m.Id).Distinct().ToListAsync();
+                return await _db.FamilyMembers.Where(m => m.FamilyId != null && fids.Contains(m.FamilyId!.Value)).Select(m => m.Id).Distinct().ToListAsync();
             }
             if (userRole == "ServiceLeader")
             {

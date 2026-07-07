@@ -7,7 +7,6 @@ namespace ShepherdCare.Api.Validators
     {
         public MemberCreateDtoValidator()
         {
-            RuleFor(x => x.FamilyId).NotEmpty();
             RuleFor(x => x.FullName).NotEmpty().MaximumLength(200);
             RuleFor(x => x.Mobile).MaximumLength(50);
         }

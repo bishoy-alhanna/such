@@ -181,6 +181,7 @@ const en = {
 
   // Members
   'members.newMember': 'New Member',
+  'members.addStandalone': '+ Add member (no family)',
   'members.editMember': 'Edit — {{name}}',
   'members.basicInfo': 'Basic',
   'members.education': 'Education & Work',
@@ -734,6 +735,7 @@ const ar: Record<keyof typeof en, string> = {
 
   // Members
   'members.newMember': 'إضافة فرد جديد',
+  'members.addStandalone': '+ إضافة فرد (بدون أسرة)',
   'members.editMember': 'تعديل — {{name}}',
   'members.basicInfo': 'الأساسية',
   'members.education': 'التعليم والعمل',

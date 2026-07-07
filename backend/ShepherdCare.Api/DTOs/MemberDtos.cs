@@ -4,7 +4,15 @@ namespace ShepherdCare.Api.DTOs
 {
     public class MemberCreateDto
     {
-        public Guid FamilyId { get; set; }
+        /// <summary>Optional — omit to create a standalone member not yet placed in a family.</summary>
+        public Guid? FamilyId { get; set; }
+        /// <summary>
+        /// Optional. When FamilyId is not given, used to find the member's family via the
+        /// father's National ID (same lookup as self-signup). If no match is found, a new
+        /// family is created for this member. If left blank, the member is created without a
+        /// family and can be linked to one later by editing them with a father's National ID.
+        /// </summary>
+        public string? FatherNationalId { get; set; }
         public string FullName { get; set; } = string.Empty;
         public string? Gender { get; set; }
         public DateTime? DateOfBirth { get; set; }

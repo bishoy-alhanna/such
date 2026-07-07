@@ -8,14 +8,14 @@ import { useT } from '../i18n'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface DashboardStats { totalFamilies: number; totalMembers: number; totalClasses: number; recentAttendanceRate?: number }
-interface AbsentMember { memberId: string; memberName: string; familyId: string; familyName: string; consecutiveAbsences: number; lastAttendanceDate?: string; neverAttended?: boolean; attendanceType: string }
+interface AbsentMember { memberId: string; memberName: string; familyId?: string; familyName?: string; consecutiveAbsences: number; lastAttendanceDate?: string; neverAttended?: boolean; attendanceType: string }
 interface AttendanceSummary { totalRecords: number; massAttendance: number; sundaySchoolAttendance: number; uniqueMembers: number }
 interface WeekPoint { label: string; total: number; mass: number; sundaySchool: number }
 interface SpiritPoint { label: string; confession: number; communion: number }
 interface ScorePoint { label: string; count: number }
 interface Trends { attendance: WeekPoint[]; spiritual: SpiritPoint[]; scores: ScorePoint[] }
 interface ClassOverview { classId: string; className: string; groupName?: string; enrolled: number; attCount: number; attRatePct: number; scoreCount: number }
-interface ConfessionGap { id: string; fullName: string; familyId: string; familyName?: string; lastConfessionDate?: string; confessionFather?: string; gapDays?: number; neverConfessed: boolean }
+interface ConfessionGap { id: string; fullName: string; familyId?: string; familyName?: string; lastConfessionDate?: string; confessionFather?: string; gapDays?: number; neverConfessed: boolean }
 interface ClassItem { id: string; className: string; groupName?: string }
 interface AttTrendWeek { label: string; count: number; rate: number; enrolled: number }
 interface AttTrend { className: string; enrolled: number; weeks: AttTrendWeek[] }
@@ -406,7 +406,7 @@ export default function ReportsPage() {
                               <td><span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 11, background: m.attendanceType === 'Mass' ? '#fef9c3' : '#dbeafe', color: m.attendanceType === 'Mass' ? '#854d0e' : '#1e40af' }}>{m.attendanceType === 'Mass' ? '⛪ القداس' : '📚 مدارس الأحد'}</span></td>
                               <td style={{ textAlign: 'center', fontWeight: 700, color: m.consecutiveAbsences >= 5 ? '#dc2626' : '#d97706' }}>{m.consecutiveAbsences}w</td>
                               <td>{m.neverAttended ? <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: 11, padding: '2px 6px', borderRadius: 4 }}>❌ لم يحضر قط</span> : m.lastAttendanceDate ? new Date(m.lastAttendanceDate).toLocaleDateString() : '—'}</td>
-                              <td><Link to={`/families/${m.familyId}`} className="btn btn-secondary" style={{ fontSize: 11, padding: '3px 8px' }}>{t('reports.view')}</Link></td>
+                              <td>{m.familyId ? <Link to={`/families/${m.familyId}`} className="btn btn-secondary" style={{ fontSize: 11, padding: '3px 8px' }}>{t('reports.view')}</Link> : '—'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -590,7 +590,7 @@ export default function ReportsPage() {
                             <td style={{ color: '#6b7280', fontSize: 13 }}>{m.confessionFather ?? '—'}</td>
                             <td>{m.neverConfessed ? <span style={{ background: '#fee2e2', color: '#b91c1c', fontSize: 11, padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>❌ لم يعترف قط</span> : <span>{new Date(m.lastConfessionDate!).toLocaleDateString('ar-EG')}</span>}</td>
                             <td>{!m.neverConfessed && m.gapDays != null && <span style={{ fontWeight: 700, color: urgent ? '#dc2626' : warn ? '#d97706' : '#6b7280' }}>{m.gapDays} يوم</span>}</td>
-                            <td><Link to={`/families/${m.familyId}`} className="btn btn-secondary" style={{ fontSize: 11, padding: '3px 8px', whiteSpace: 'nowrap' }}>عرض</Link></td>
+                            <td>{m.familyId ? <Link to={`/families/${m.familyId}`} className="btn btn-secondary" style={{ fontSize: 11, padding: '3px 8px', whiteSpace: 'nowrap' }}>عرض</Link> : '—'}</td>
                           </tr>
                         )
                       })}

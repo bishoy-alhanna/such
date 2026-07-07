@@ -228,6 +228,16 @@ using (var scope = app.Services.CreateScope())
         Console.Error.WriteLine($"Warning: FamilyMember coptic columns failed: {ex.Message}");
     }
 
+    // Allow members to be created standalone (no family yet), linked later via the father's National ID
+    try
+    {
+        db.Database.ExecuteSqlRaw("ALTER TABLE \"FamilyMembers\" ALTER COLUMN \"FamilyId\" DROP NOT NULL;");
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Warning: FamilyMembers.FamilyId nullable migration failed: {ex.Message}");
+    }
+
     // Sacramental milestones table
     try
     {

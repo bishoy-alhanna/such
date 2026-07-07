@@ -203,18 +203,22 @@ namespace ShepherdCare.Api.Controllers
                         });
                         await _db.SaveChangesAsync();
 
-                        // Link the new couple's household back to husband's original (father's) family
-                        bool linkExists1 = await _db.FamilyLinks.AnyAsync(l =>
-                            l.FamilyId == husband.FamilyId && l.LinkedFamilyId == couplesFamilyId);
-                        if (!linkExists1)
+                        // Link the new couple's household back to husband's original (father's) family,
+                        // if he had one — he may himself be a standalone member with none yet.
+                        if (husband.FamilyId.HasValue)
                         {
-                            _db.FamilyLinks.Add(new FamilyLink
+                            bool linkExists1 = await _db.FamilyLinks.AnyAsync(l =>
+                                l.FamilyId == husband.FamilyId.Value && l.LinkedFamilyId == couplesFamilyId);
+                            if (!linkExists1)
                             {
-                                FamilyId = husband.FamilyId,
-                                LinkedFamilyId = couplesFamilyId,
-                                RelationLabel = $"عائلة {husband.FullName} (ابن)",
-                            });
-                            await _db.SaveChangesAsync();
+                                _db.FamilyLinks.Add(new FamilyLink
+                                {
+                                    FamilyId = husband.FamilyId.Value,
+                                    LinkedFamilyId = couplesFamilyId,
+                                    RelationLabel = $"عائلة {husband.FullName} (ابن)",
+                                });
+                                await _db.SaveChangesAsync();
+                            }
                         }
                     }
                     else
@@ -244,7 +248,7 @@ namespace ShepherdCare.Api.Controllers
                     if (!string.IsNullOrWhiteSpace(dto.FatherNationalId))
                     {
                         var father = await _db.FamilyMembers.FirstOrDefaultAsync(m => m.NationalId == dto.FatherNationalId);
-                        if (father != null)
+                        if (father?.FamilyId != null)
                         {
                             var daughterRecord = new FamilyMember
                             {
@@ -261,13 +265,13 @@ namespace ShepherdCare.Api.Controllers
                             // One link from wife's father's family to the couple's family,
                             // labelled with wife's name + husband's family name.
                             bool linkExists2 = await _db.FamilyLinks.AnyAsync(l =>
-                                l.FamilyId == father.FamilyId && l.LinkedFamilyId == couplesFamilyId);
+                                l.FamilyId == father.FamilyId.Value && l.LinkedFamilyId == couplesFamilyId);
                             if (!linkExists2)
                             {
                                 var couplesName = husband != null ? husband.FullName : dto.FullName;
                                 _db.FamilyLinks.Add(new FamilyLink
                                 {
-                                    FamilyId = father.FamilyId,
+                                    FamilyId = father.FamilyId.Value,
                                     LinkedFamilyId = couplesFamilyId,
                                     RelationLabel = $"{dto.FullName} - عائلة {couplesName}",
                                 });
@@ -283,9 +287,9 @@ namespace ShepherdCare.Api.Controllers
                     if (!string.IsNullOrWhiteSpace(dto.FatherNationalId))
                     {
                         var father = await _db.FamilyMembers.FirstOrDefaultAsync(m => m.NationalId == dto.FatherNationalId);
-                        if (father != null)
+                        if (father?.FamilyId != null)
                         {
-                            familyId = father.FamilyId;
+                            familyId = father.FamilyId.Value;
                         }
                         else
                         {

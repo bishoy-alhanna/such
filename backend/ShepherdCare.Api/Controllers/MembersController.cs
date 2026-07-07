@@ -80,6 +80,23 @@ namespace ShepherdCare.Api.Controllers
             return Ok(new { items });
         }
 
+        /// <summary>
+        /// Resolves a family for a member being created/linked without an explicit FamilyId:
+        /// finds the family of an existing member with the given father's National ID, or
+        /// creates a brand-new family (named after the member) if no such father is found.
+        /// Mirrors the family-resolution logic used at member self-signup.
+        /// </summary>
+        private async Task<Guid> ResolveOrCreateFamilyByFatherNationalIdAsync(string fatherNationalId, string fallbackFamilyName)
+        {
+            var father = await _db.FamilyMembers.FirstOrDefaultAsync(m => m.NationalId == fatherNationalId);
+            if (father?.FamilyId != null) return father.FamilyId.Value;
+
+            var newFamily = new Family { FamilyName = fallbackFamilyName };
+            _db.Families.Add(newFamily);
+            await _db.SaveChangesAsync();
+            return newFamily.Id;
+        }
+
         [HttpPost]
         public async Task<IActionResult> Create(MemberCreateDto dto)
         {
@@ -87,9 +104,17 @@ namespace ShepherdCare.Api.Controllers
                 (dto.NationalId.Length != 14 || !dto.NationalId.All(char.IsDigit)))
                 return BadRequest("National ID must be exactly 14 digits.");
 
+            if (!string.IsNullOrWhiteSpace(dto.FatherNationalId) &&
+                (dto.FatherNationalId.Trim().Length != 14 || !dto.FatherNationalId.Trim().All(char.IsDigit)))
+                return BadRequest("Father's National ID must be exactly 14 digits.");
+
+            var familyId = dto.FamilyId;
+            if (familyId == null && !string.IsNullOrWhiteSpace(dto.FatherNationalId))
+                familyId = await ResolveOrCreateFamilyByFatherNationalIdAsync(dto.FatherNationalId.Trim(), dto.FullName);
+
             var m = new FamilyMember
             {
-                FamilyId          = dto.FamilyId,
+                FamilyId          = familyId,
                 FullName          = dto.FullName,
                 Gender            = dto.Gender,
                 DateOfBirth       = dto.DateOfBirth,
@@ -159,6 +184,14 @@ namespace ShepherdCare.Api.Controllers
             if (!string.IsNullOrEmpty(dto.NationalId) &&
                 (dto.NationalId.Length != 14 || !dto.NationalId.All(char.IsDigit)))
                 return BadRequest("National ID must be exactly 14 digits.");
+
+            if (!string.IsNullOrWhiteSpace(dto.FatherNationalId) &&
+                (dto.FatherNationalId.Trim().Length != 14 || !dto.FatherNationalId.Trim().All(char.IsDigit)))
+                return BadRequest("Father's National ID must be exactly 14 digits.");
+
+            // Standalone member (created without a family) being linked to one now.
+            if (m.FamilyId == null && !string.IsNullOrWhiteSpace(dto.FatherNationalId))
+                m.FamilyId = await ResolveOrCreateFamilyByFatherNationalIdAsync(dto.FatherNationalId.Trim(), m.FullName);
 
             m.FullName          = dto.FullName;
             m.Gender            = dto.Gender;
@@ -417,10 +450,11 @@ namespace ShepherdCare.Api.Controllers
 
             var matches = await _db.FamilyMembers
                 .Include(m => m.Family)
-                .Where(m => m.FamilyId != familyId
+                .Where(m => m.FamilyId != null
+                         && m.FamilyId != familyId
                          && m.NationalId != null
                          && nidSet.Contains(m.NationalId!)
-                         && !alreadyLinked.Contains(m.FamilyId))
+                         && !alreadyLinked.Contains(m.FamilyId!.Value))
                 .Select(m => new
                 {
                     MatchedMemberId       = m.Id,

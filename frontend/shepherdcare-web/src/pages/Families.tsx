@@ -3,11 +3,12 @@ import api from '../services/api'
 import { Link, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import FamilyCreateForm from '../components/FamilyCreateForm'
+import MemberFormModal from '../components/MemberFormModal'
 import SearchBox from '../components/SearchBox'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../auth'
 import { useT } from '../i18n'
-import type { Family, PagedResponse } from '../types'
+import type { Family, Member, PagedResponse } from '../types'
 
 export default function FamiliesPage() {
   const [families, setFamilies]     = useState<Family[]>([])
@@ -16,6 +17,7 @@ export default function FamiliesPage() {
   const [query, setQuery]           = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [editFamily, setEditFamily] = useState<Family | null>(null)
+  const [showAddMember, setShowAddMember] = useState(false)
   const auth = useAuth()
   const { t } = useT()
   const navigate = useNavigate()
@@ -52,6 +54,11 @@ export default function FamiliesPage() {
     setFamilies(prev => prev.some(x => x.id === f.id) ? prev.map(x => x.id === f.id ? f : x) : [f, ...prev])
   }
 
+  const handleMemberSaved = (m: Member) => {
+    setShowAddMember(false)
+    navigate(`/members/${m.id}`)
+  }
+
   return (
     <div>
       <Header />
@@ -59,9 +66,14 @@ export default function FamiliesPage() {
         <div className="page-header">
           <h2>{t('families.title')} {(isServant || isMember) && <span style={{ fontSize: '14px', color: '#666', fontWeight: 'normal' }}>{t('families.readOnly')}</span>}</h2>
           {canCreate && (
-            <button className="btn-primary" onClick={() => setShowCreate(true)}>
-              {t('families.createFamily')}
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn-primary" onClick={() => setShowCreate(true)}>
+                {t('families.createFamily')}
+              </button>
+              <button className="btn-primary" onClick={() => setShowAddMember(true)} style={{ background: '#0891b2' }}>
+                {t('members.addStandalone')}
+              </button>
+            </div>
           )}
         </div>
 
@@ -126,6 +138,14 @@ export default function FamiliesPage() {
             family={editFamily}
             onSaved={handleSaved}
             onCancel={() => { setShowCreate(false); setEditFamily(null) }}
+          />
+        )}
+
+        {showAddMember && (
+          <MemberFormModal
+            member={null}
+            onSaved={handleMemberSaved}
+            onCancel={() => setShowAddMember(false)}
           />
         )}
       </div>
