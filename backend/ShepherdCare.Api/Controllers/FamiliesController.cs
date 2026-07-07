@@ -462,8 +462,8 @@ namespace ShepherdCare.Api.Controllers
             if (existingHead != null)
             {
                 // Reuse the existing family — just add the links
-                targetFamilyId   = existingHead.FamilyId;
-                targetFamilyName = (await _db.Families.FindAsync(existingHead.FamilyId))!.FamilyName;
+                targetFamilyId   = existingHead.FamilyId!.Value;
+                targetFamilyName = (await _db.Families.FindAsync(targetFamilyId))!.FamilyName;
                 alreadyExisted   = true;
             }
             else
@@ -549,11 +549,13 @@ namespace ShepherdCare.Api.Controllers
             }
 
             // ── ALSO link the family where the member currently lives (matched family) to father's family ──
-            if (member.FamilyId != dto.OriginFamilyId && member.FamilyId != targetFamilyId)
+            // (skipped entirely if the member is standalone — not yet placed in any family)
+            if (member.FamilyId.HasValue && member.FamilyId != dto.OriginFamilyId && member.FamilyId != targetFamilyId)
             {
+                var memberFamilyId = member.FamilyId.Value;
                 // Get the Head member's gender from the matched family
                 var matchedHead = await _db.FamilyMembers
-                    .Where(m => m.FamilyId == member.FamilyId && m.Relation == "Head")
+                    .Where(m => m.FamilyId == memberFamilyId && m.Relation == "Head")
                     .FirstOrDefaultAsync();
                 
                 if (matchedHead != null && !alreadyExisted)
@@ -578,21 +580,21 @@ namespace ShepherdCare.Api.Controllers
                 var matchedLabelFromFather = matchedGender == "female" ? "Daughter's family" : "Son's family";
 
                 // father's family → matched family
-                if (!await _db.FamilyLinks.AnyAsync(l => l.FamilyId == targetFamilyId && l.LinkedFamilyId == member.FamilyId))
+                if (!await _db.FamilyLinks.AnyAsync(l => l.FamilyId == targetFamilyId && l.LinkedFamilyId == memberFamilyId))
                     _db.FamilyLinks.Add(new FamilyLink
                     {
                         Id             = Guid.NewGuid(),
                         FamilyId       = targetFamilyId,
-                        LinkedFamilyId = member.FamilyId,
+                        LinkedFamilyId = memberFamilyId,
                         RelationLabel  = matchedLabelFromFather
                     });
 
                 // matched family → father's family
-                if (!await _db.FamilyLinks.AnyAsync(l => l.FamilyId == member.FamilyId && l.LinkedFamilyId == targetFamilyId))
+                if (!await _db.FamilyLinks.AnyAsync(l => l.FamilyId == memberFamilyId && l.LinkedFamilyId == targetFamilyId))
                     _db.FamilyLinks.Add(new FamilyLink
                     {
                         Id             = Guid.NewGuid(),
-                        FamilyId       = member.FamilyId,
+                        FamilyId       = memberFamilyId,
                         LinkedFamilyId = targetFamilyId,
                         RelationLabel  = "Father's family"
                     });

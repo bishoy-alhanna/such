@@ -589,7 +589,7 @@ export default function Dashboard() {
                         {searchResults.members.map(member => (
                           <Link
                             key={member.id}
-                            to={`/families/${member.familyId}`}
+                            to={member.familyId ? `/families/${member.familyId}` : `/members/${member.id}`}
                             style={{
                               textDecoration: 'none',
                               padding: '12px 16px',

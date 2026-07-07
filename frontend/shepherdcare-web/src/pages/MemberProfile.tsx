@@ -344,11 +344,13 @@ export default function MemberProfilePage() {
       <div className="container" style={{ maxWidth: 760 }}>
 
         {/* Back link */}
-        <div style={{ marginBottom: 16 }}>
-          <Link to={`/families/${member.familyId}`} style={{ color: '#6b7280', fontSize: '0.88rem', textDecoration: 'none' }}>
-            ← العودة إلى الأسرة
-          </Link>
-        </div>
+        {member.familyId && (
+          <div style={{ marginBottom: 16 }}>
+            <Link to={`/families/${member.familyId}`} style={{ color: '#6b7280', fontSize: '0.88rem', textDecoration: 'none' }}>
+              ← العودة إلى الأسرة
+            </Link>
+          </div>
+        )}
 
         {/* Hero card */}
         <div style={{
@@ -414,10 +416,17 @@ export default function MemberProfilePage() {
                   ✏️ طلب تعديل بياناتي
                 </button>
               )}
-              <Link to={`/families/${member.familyId}`} style={{
-                padding: '6px 14px', background: '#f1f5f9', color: '#374151',
-                borderRadius: 8, fontSize: '0.85rem', textDecoration: 'none'
-              }}>👨‍👩‍👧 عرض الأسرة</Link>
+              {member.familyId ? (
+                <Link to={`/families/${member.familyId}`} style={{
+                  padding: '6px 14px', background: '#f1f5f9', color: '#374151',
+                  borderRadius: 8, fontSize: '0.85rem', textDecoration: 'none'
+                }}>👨‍👩‍👧 عرض الأسرة</Link>
+              ) : (
+                <span style={{
+                  padding: '6px 14px', background: '#fef3c7', color: '#92400e',
+                  borderRadius: 8, fontSize: '0.85rem', fontWeight: 600
+                }}>⚠️ بدون أسرة بعد</span>
+              )}
               <button onClick={() => setShowQR(v => !v)} style={{
                 padding: '6px 14px', background: showQR ? '#6366f1' : '#f1f5f9',
                 color: showQR ? '#fff' : '#374151',

@@ -23,7 +23,7 @@ export interface PagedResponse<T> {
 export interface Member {
   id: string
   primaryMemberId?: string
-  familyId: string
+  familyId?: string
   fullName: string
   gender?: string
   dateOfBirth?: string

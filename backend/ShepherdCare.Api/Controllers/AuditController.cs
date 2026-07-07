@@ -122,7 +122,7 @@ namespace ShepherdCare.Api.Controllers
                             })
                             .FirstOrDefaultAsync();
                         entityData = member;
-                        navLink = member != null ? $"/families/{member.FamilyId}" : null;
+                        navLink = member?.FamilyId != null ? $"/families/{member.FamilyId}" : null;
                         break;
 
                     case "User":

@@ -290,9 +290,10 @@ namespace ShepherdCare.Api.Controllers
                 allMemberIds.AddRange(siblings);
             }
 
-            // Find the classes this member (or any of their sibling records) is enrolled in
+            // Find the classes this member (or any of their sibling records) is enrolled in.
+            // Note: no early-return when empty — global categories (no ClassId/GroupId) must
+            // still be available to members with no active class enrollment.
             var classIds = await _db.ClassEnrollments.Where(e => allMemberIds.Contains(e.MemberId)).Select(e => e.ClassId).ToListAsync();
-            if (!classIds.Any()) return Ok(new object[0]);
 
             // Find the group IDs for those classes
             var groupIds = await _db.Classes.Where(c => classIds.Contains(c.Id) && c.GroupId != null).Select(c => c.GroupId!.Value).Distinct().ToListAsync();
