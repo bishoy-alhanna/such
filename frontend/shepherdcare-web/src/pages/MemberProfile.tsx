@@ -6,6 +6,7 @@ import MemberFormModal from '../components/MemberFormModal'
 import QRCodeDisplay from '../components/QRCodeDisplay'
 import { useAuth } from '../auth'
 import type { Member } from '../types'
+import { formatAge } from '../utils/ageDisplay'
 
 interface ServantAssignment { id: string; classId: string; className: string }
 interface ServantInfo { username: string | null; userId: string | null; assignments: ServantAssignment[] }
@@ -65,11 +66,6 @@ const OCC_LABELS: Record<string, string> = {
 const QUAL_LABELS: Record<string, string> = {
   Primary: 'ابتدائي', Preparatory: 'إعدادي', Secondary: 'ثانوي',
   Diploma: 'دبلوم', Bachelor: 'بكالوريوس', Masters: 'ماجستير', PhD: 'دكتوراه',
-}
-
-function age(dob?: string) {
-  if (!dob) return null
-  return Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
 }
 
 function fmt(date?: string) {
@@ -336,7 +332,7 @@ export default function MemberProfilePage() {
 
   const photoSrc = member.photoUrl || null
 
-  const memberAge = age(member.dateOfBirth)
+  const memberAge = formatAge(member.dateOfBirth)
 
   return (
     <div>
@@ -384,7 +380,7 @@ export default function MemberProfilePage() {
             <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: '6px 20px', fontSize: '0.88rem', color: '#6b7280' }}>
               {member.relation && <span>👥 {RELATION_LABELS[member.relation] ?? member.relation}</span>}
               {member.gender && <span>{member.gender === 'Male' ? '♂ ذكر' : '♀ أنثى'}</span>}
-              {memberAge !== null && <span>🎂 {memberAge} سنة{member.dateOfBirth ? ` (${fmt(member.dateOfBirth)})` : ''}</span>}
+              {member.dateOfBirth && <span>🎂 {memberAge}{member.dateOfBirth ? ` (${fmt(member.dateOfBirth)})` : ''}</span>}
               {member.isChild && <span>👶 طفل</span>}
             </div>
 

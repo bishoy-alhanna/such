@@ -241,7 +241,9 @@ namespace ShepherdCare.Api.Controllers
             if (cls.MinAge == null && cls.MaxAge == null)
                 return BadRequest("Class has no age range configured.");
 
-            var year = DateTime.UtcNow.Year;
+            var today = DateTime.UtcNow;
+            var year = (today.Month < 9 || (today.Month == 9 && today.Day < 15))
+                ? today.Year - 1 : today.Year;
             var academicYear = year.ToString();
 
             // Load all church members who have a date of birth
@@ -250,12 +252,12 @@ namespace ShepherdCare.Api.Controllers
                 .Select(m => new { m.Id, m.DateOfBirth, m.Gender })
                 .ToListAsync();
 
-            // Filter by age on Sep 15 and gender
+            // Filter by age on Sep 15 and gender (MaxAge is exclusive)
             var eligible = members
                 .Where(m => {
                     var age = AgeOnSep15(m.DateOfBirth!.Value, year);
                     var minOk    = cls.MinAge == null || age >= cls.MinAge.Value;
-                    var maxOk    = cls.MaxAge == null || age <= cls.MaxAge.Value;
+                    var maxOk    = cls.MaxAge == null || age < cls.MaxAge.Value;
                     var genderOk = string.IsNullOrEmpty(cls.Gender) || string.Equals(m.Gender, cls.Gender, StringComparison.OrdinalIgnoreCase);
                     return minOk && maxOk && genderOk;
                 })

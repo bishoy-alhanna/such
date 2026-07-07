@@ -7,6 +7,7 @@ import PriestNoteCreateForm from '../components/PriestNoteCreateForm'
 import { useAuth } from '../auth'
 import { useT } from '../i18n'
 import type { Family, Member, PriestNote } from '../types'
+import { formatAge } from '../utils/ageDisplay'
 interface FamilyLink {
   id: string
   linkedFamilyId: string
@@ -210,11 +211,7 @@ export default function FamilyPage() {
     }
   }
 
-  const age = (dob?: string) => {
-    if (!dob) return '—'
-    const diff = Date.now() - new Date(dob).getTime()
-    return t('common.yrs', { n: Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25)) })
-  }
+  const age = (dob?: string) => formatAge(dob)
 
   if (loading) return <div className="container"><p>{t('common.loading')}</p></div>
   if (!family)  return <div className="container"><p>Family not found.</p></div>

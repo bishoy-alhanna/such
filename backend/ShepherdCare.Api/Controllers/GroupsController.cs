@@ -127,7 +127,9 @@ namespace ShepherdCare.Api.Controllers
 
         private async Task<object> RunAutoEnroll(List<Class> classes)
         {
-            var year = DateTime.UtcNow.Year;
+            var today = DateTime.UtcNow;
+            var year = (today.Month < 9 || (today.Month == 9 && today.Day < 15))
+                ? today.Year - 1 : today.Year;
             var academicYear = year.ToString();
 
             var members = await _db.FamilyMembers
@@ -143,7 +145,7 @@ namespace ShepherdCare.Api.Controllers
                     .Where(m => {
                         var age      = AgeOnSep15(m.DateOfBirth!.Value, year);
                         var ageOk    = (cls.MinAge == null || age >= cls.MinAge.Value)
-                                    && (cls.MaxAge == null || age <= cls.MaxAge.Value);
+                                    && (cls.MaxAge == null || age < cls.MaxAge.Value);
                         var genderOk = string.IsNullOrEmpty(cls.Gender)
                                     || string.Equals(m.Gender, cls.Gender, StringComparison.OrdinalIgnoreCase);
                         return ageOk && genderOk;
