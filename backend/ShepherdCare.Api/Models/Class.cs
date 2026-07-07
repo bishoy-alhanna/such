@@ -15,6 +15,9 @@ namespace ShepherdCare.Api.Models
         public Guid? GroupId { get; set; }
         public Group? Group { get; set; }
 
+        public int? MinAge { get; set; }
+        public int? MaxAge { get; set; }
+
         public List<Servant> Servants { get; set; } = new();
         public List<ClassEnrollment> ClassEnrollments { get; set; } = new();
     }

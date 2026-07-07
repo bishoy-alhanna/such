@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
 import Header from '../components/Header'
@@ -9,6 +9,7 @@ import { useT } from '../i18n'
 
 interface ClassRow {
   id: string; className: string; ageGroup?: string
+  minAge?: number; maxAge?: number
   groupId?: string; groupName?: string
   servantCount: number; memberCount: number
 }
@@ -29,6 +30,8 @@ export default function ClassesPage() {
 
   const [className, setClassName] = useState('')
   const [ageGroup, setAgeGroup]   = useState('')
+  const [minAge, setMinAge]       = useState('')
+  const [maxAge, setMaxAge]       = useState('')
   const [groupId, setGroupId]     = useState('')
   const [formError, setFormError] = useState('')
   const [saving, setSaving]       = useState(false)
@@ -43,22 +46,31 @@ export default function ClassesPage() {
   useEffect(() => { api.get<GroupOption[]>('/groups').then(r => setGroups(r.data)).catch(() => {}) }, [])
 
   const openCreate = () => {
-    setEditClass(null); setClassName(''); setAgeGroup(''); setGroupId(''); setFormError(''); setShowForm(true)
+    setEditClass(null); setClassName(''); setAgeGroup(''); setMinAge(''); setMaxAge(''); setGroupId(''); setFormError(''); setShowForm(true)
   }
   const openEdit = (c: ClassRow) => {
-    setEditClass(c); setClassName(c.className); setAgeGroup(c.ageGroup ?? ''); setGroupId(c.groupId ?? ''); setFormError(''); setShowForm(true)
+    setEditClass(c); setClassName(c.className); setAgeGroup(c.ageGroup ?? '')
+    setMinAge(c.minAge != null ? String(c.minAge) : '')
+    setMaxAge(c.maxAge != null ? String(c.maxAge) : '')
+    setGroupId(c.groupId ?? ''); setFormError(''); setShowForm(true)
   }
 
   const save = async () => {
     if (!className.trim()) return setFormError('Class name is required.')
+    const minAgeNum = minAge !== '' ? parseInt(minAge, 10) : undefined
+    const maxAgeNum = maxAge !== '' ? parseInt(maxAge, 10) : undefined
+    if (minAgeNum != null && maxAgeNum != null && minAgeNum > maxAgeNum)
+      return setFormError('Min age cannot be greater than max age.')
     setSaving(true); setFormError('')
-    const payload = { className: className.trim(), ageGroup: ageGroup || undefined, groupId: groupId || undefined }
+    const payload = { className: className.trim(), ageGroup: ageGroup || undefined,
+      minAge: minAgeNum, maxAge: maxAgeNum, groupId: groupId || undefined }
     try {
       if (editClass) {
         await api.put(`/classes/${editClass.id}`, payload)
         setClasses(prev => prev.map(c => c.id === editClass.id
-          ? { ...c, className: className.trim(), ageGroup: ageGroup || undefined, groupId: groupId || undefined,
-              groupName: groups.find(g => g.id === groupId)?.name } : c))
+          ? { ...c, className: className.trim(), ageGroup: ageGroup || undefined,
+              minAge: minAgeNum, maxAge: maxAgeNum,
+              groupId: groupId || undefined, groupName: groups.find(g => g.id === groupId)?.name } : c))
       } else {
         await api.post('/classes', payload)
         load()
@@ -110,7 +122,14 @@ export default function ClassesPage() {
             {classes.map(c => (
               <tr key={c.id}>
                 <td><Link to={`/classes/${c.id}`} style={{ color: '#4f46e5', fontWeight: 600 }}>{c.className}</Link></td>
-                <td>{c.ageGroup ?? '—'}</td>
+                <td>
+                  {c.ageGroup ?? '—'}
+                  {(c.minAge != null || c.maxAge != null) && (
+                    <span style={{ marginLeft: 6, fontSize: 12, color: '#6366f1', fontWeight: 600 }}>
+                      ({c.minAge ?? '?'}–{c.maxAge ?? '?'} yrs)
+                    </span>
+                  )}
+                </td>
                 <td>{c.groupName ?? '—'}</td>
                 <td>{c.servantCount}</td>
                 <td>{c.memberCount}</td>
@@ -147,6 +166,23 @@ export default function ClassesPage() {
                     <option value="">{t('classes.form.none')}</option>
                     {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                   </select>
+                </div>
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <label style={{ fontWeight: 600, fontSize: 13, color: '#555' }}>
+                  Age range <span style={{ fontWeight: 400, color: '#888' }}>(as of Sep 15 — for auto-enroll)</span>
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 4 }}>
+                  <div>
+                    <label>Min age</label>
+                    <input type="number" min={0} max={120} value={minAge}
+                      onChange={e => setMinAge(e.target.value)} placeholder="e.g. 6" />
+                  </div>
+                  <div>
+                    <label>Max age</label>
+                    <input type="number" min={0} max={120} value={maxAge}
+                      onChange={e => setMaxAge(e.target.value)} placeholder="e.g. 12" />
+                  </div>
                 </div>
               </div>
               {formError && <div className="error">{formError}</div>}

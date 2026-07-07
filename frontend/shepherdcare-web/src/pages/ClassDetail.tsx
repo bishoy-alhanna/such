@@ -11,7 +11,8 @@ interface UserOption   { id: string; name: string }
 interface MemberOption { id: string; fullName: string; familyName?: string }
 
 interface ClassDetail {
-  id: string; className: string; ageGroup?: string; groupId?: string; groupName?: string
+  id: string; className: string; ageGroup?: string; minAge?: number; maxAge?: number
+  groupId?: string; groupName?: string
   servants: ServantRow[]; members: MemberRow[]
 }
 
@@ -53,6 +54,9 @@ export default function ClassDetailPage() {
   const [scoreErr, setScoreErr]             = useState('')
   const [scoreSaving, setScoreSaving]       = useState(false)
   const [scoreSuccess, setScoreSuccess]     = useState('')
+
+  const [autoEnrolling, setAutoEnrolling]   = useState(false)
+  const [autoEnrollMsg, setAutoEnrollMsg]   = useState('')
 
   const loadLeaderboard = useCallback((catId?: string) => {
     if (!id) return
@@ -128,6 +132,22 @@ export default function ClassDetailPage() {
     setCls(prev => prev ? { ...prev, members: prev.members.filter(m => m.id !== enrollmentId) } : prev)
   }
 
+  const autoEnroll = async () => {
+    if (!confirm(`Auto-enroll all members aged ${cls?.minAge}–${cls?.maxAge} (as of Sep 15)?`)) return
+    setAutoEnrolling(true); setAutoEnrollMsg('')
+    try {
+      const r = await api.post<{ enrolled: number; skipped: number; message: string }>(`/classes/${id}/auto-enroll`)
+      setAutoEnrollMsg(r.data.message)
+      // Reload members list
+      const updated = await api.get<ClassDetail>(`/classes/${id}`)
+      setCls(updated.data)
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { title?: string } } })?.response?.data?.title
+      setAutoEnrollMsg(msg ?? 'Auto-enroll failed.')
+    }
+    setAutoEnrolling(false)
+  }
+
   const submitScore = async () => {
     if (!scoreMemberId)   return setScoreErr('Select a member.')
     if (!scoreCategoryId) return setScoreErr('Select a category.')
@@ -195,8 +215,27 @@ export default function ClassDetailPage() {
         <div className="page-header">
           <div>
             <h2 style={{ margin: 0 }}>{cls.className}</h2>
-            {cls.ageGroup && <p style={{ margin: '2px 0 0', color: '#64748b' }}>{t('classes.ageGroup')}: {cls.ageGroup}</p>}
+            <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 14 }}>
+              {cls.ageGroup && <span>{t('classes.ageGroup')}: {cls.ageGroup}</span>}
+              {(cls.minAge != null || cls.maxAge != null) && (
+                <span style={{ marginLeft: cls.ageGroup ? 12 : 0 }}>
+                  Ages {cls.minAge ?? '?'}–{cls.maxAge ?? '?'}
+                  <span style={{ color: '#94a3b8', marginLeft: 4 }}>(as of Sep 15)</span>
+                </span>
+              )}
+            </p>
           </div>
+          {canManage && (cls.minAge != null || cls.maxAge != null) && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+              <button className="btn-primary" onClick={autoEnroll} disabled={autoEnrolling}
+                style={{ background: '#0891b2' }}>
+                {autoEnrolling ? 'Enrolling…' : '⚡ Auto-Enroll by Age'}
+              </button>
+              {autoEnrollMsg && (
+                <span style={{ fontSize: 13, color: '#0369a1' }}>{autoEnrollMsg}</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Servants ── */}

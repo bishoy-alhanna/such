@@ -21,6 +21,15 @@ namespace ShepherdCare.Api.Controllers
             _audit = audit;
         }
 
+        // Age as of Sep 15 of the given year
+        private static int AgeOnSep15(DateTime dob, int year)
+        {
+            var refDate = new DateTime(year, 9, 15);
+            var age = refDate.Year - dob.Year;
+            if (dob.Date > refDate.AddYears(-age)) age--;
+            return age;
+        }
+
         // ── List ─────────────────────────────────────────────────────────────
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] string? q, [FromQuery] Guid? groupId,
@@ -57,7 +66,7 @@ namespace ShepherdCare.Api.Controllers
                 .Skip((page - 1) * pageSize).Take(pageSize)
                 .Select(c => new
                 {
-                    c.Id, c.ClassName, c.AgeGroup, c.GroupId,
+                    c.Id, c.ClassName, c.AgeGroup, c.MinAge, c.MaxAge, c.GroupId,
                     GroupName    = c.Group != null ? c.Group.Name : null,
                     ServantCount = c.Servants.Count,
                     MemberCount  = c.ClassEnrollments.Count
@@ -89,7 +98,7 @@ namespace ShepherdCare.Api.Controllers
 
             return Ok(new
             {
-                c.Id, c.ClassName, c.AgeGroup, c.GroupId,
+                c.Id, c.ClassName, c.AgeGroup, c.MinAge, c.MaxAge, c.GroupId,
                 GroupName = c.Group != null ? c.Group.Name : null,
                 Servants = c.Servants.Select(s => new
                 {
@@ -117,6 +126,8 @@ namespace ShepherdCare.Api.Controllers
                 Id = Guid.NewGuid(),
                 ClassName = dto.ClassName.Trim(),
                 AgeGroup = dto.AgeGroup,
+                MinAge = dto.MinAge,
+                MaxAge = dto.MaxAge,
                 ServiceId = dto.ServiceId,
                 ClassLeaderId = dto.ClassLeaderId,
                 GroupId = dto.GroupId
@@ -124,7 +135,7 @@ namespace ShepherdCare.Api.Controllers
             _db.Classes.Add(c);
             await _db.SaveChangesAsync();
             await _audit.LogAsync(new AuditLog { Action = "CreateClass", PerformedBy = User.Identity?.Name ?? "system", Entity = "Class", EntityId = c.Id.ToString(), Details = c.ClassName });
-            return CreatedAtAction(nameof(GetById), new { id = c.Id }, new { c.Id, c.ClassName, c.AgeGroup, c.GroupId });
+            return CreatedAtAction(nameof(GetById), new { id = c.Id }, new { c.Id, c.ClassName, c.AgeGroup, c.MinAge, c.MaxAge, c.GroupId });
         }
 
         // ── Update ───────────────────────────────────────────────────────────
@@ -136,6 +147,8 @@ namespace ShepherdCare.Api.Controllers
             if (c == null) return NotFound();
             c.ClassName = dto.ClassName.Trim();
             c.AgeGroup = dto.AgeGroup;
+            c.MinAge = dto.MinAge;
+            c.MaxAge = dto.MaxAge;
             c.ServiceId = dto.ServiceId;
             c.ClassLeaderId = dto.ClassLeaderId;
             c.GroupId = dto.GroupId;
@@ -214,12 +227,83 @@ namespace ShepherdCare.Api.Controllers
             await _db.SaveChangesAsync();
             return NoContent();
         }
+
+        // ── Auto-Enroll by Age ───────────────────────────────────────────────
+        // Age is calculated as of September 15 of the current year (Coptic academic year cutoff).
+        [HttpPost("{id}/auto-enroll")]
+        [Authorize(Roles = "SuperAdmin,ServiceLeader")]
+        public async Task<IActionResult> AutoEnroll(Guid id)
+        {
+            var cls = await _db.Classes.FindAsync(id);
+            if (cls == null) return NotFound("Class not found.");
+            if (cls.MinAge == null && cls.MaxAge == null)
+                return BadRequest("Class has no age range configured.");
+
+            var year = DateTime.UtcNow.Year;
+            var academicYear = year.ToString();
+
+            // Load all church members who have a date of birth
+            var members = await _db.FamilyMembers
+                .Where(m => m.DateOfBirth != null)
+                .Select(m => new { m.Id, m.DateOfBirth })
+                .ToListAsync();
+
+            // Filter by age on Sep 15 of the current year
+            var eligible = members
+                .Where(m => {
+                    var age = AgeOnSep15(m.DateOfBirth!.Value, year);
+                    var minOk = cls.MinAge == null || age >= cls.MinAge.Value;
+                    var maxOk = cls.MaxAge == null || age <= cls.MaxAge.Value;
+                    return minOk && maxOk;
+                })
+                .Select(m => m.Id)
+                .ToList();
+
+            if (eligible.Count == 0)
+                return Ok(new { Enrolled = 0, Skipped = 0, Message = "No members found in the age range." });
+
+            // Exclude already enrolled
+            var alreadyEnrolled = await _db.ClassEnrollments
+                .Where(e => e.ClassId == id && eligible.Contains(e.MemberId))
+                .Select(e => e.MemberId)
+                .ToListAsync();
+
+            var toEnroll = eligible.Except(alreadyEnrolled).ToList();
+
+            foreach (var memberId in toEnroll)
+            {
+                _db.ClassEnrollments.Add(new ClassEnrollment
+                {
+                    Id           = Guid.NewGuid(),
+                    ClassId      = id,
+                    MemberId     = memberId,
+                    AcademicYear = academicYear
+                });
+            }
+
+            if (toEnroll.Count > 0)
+                await _db.SaveChangesAsync();
+
+            await _audit.LogAsync(new AuditLog
+            {
+                Action      = "AutoEnrollClass",
+                PerformedBy = User.Identity?.Name ?? "system",
+                Entity      = "Class",
+                EntityId    = id.ToString(),
+                Details     = $"Auto-enrolled {toEnroll.Count} members (ages {cls.MinAge}–{cls.MaxAge} as of Sep 15 {year})"
+            });
+
+            return Ok(new { Enrolled = toEnroll.Count, Skipped = alreadyEnrolled.Count,
+                Message = $"Enrolled {toEnroll.Count} member(s). {alreadyEnrolled.Count} were already in the class." });
+        }
     }
 
     public class ClassUpsertDto
     {
         public string ClassName { get; set; } = string.Empty;
         public string? AgeGroup { get; set; }
+        public int? MinAge { get; set; }
+        public int? MaxAge { get; set; }
         public Guid? ServiceId { get; set; }
         public Guid? ClassLeaderId { get; set; }
         public Guid? GroupId { get; set; }
