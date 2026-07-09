@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import { useAuth } from '../auth'
+import { useT } from '../i18n'
 
 interface NotifItem {
   id: string
@@ -22,6 +23,7 @@ const ROLES = ['All', 'SuperAdmin', 'Priest', 'SeniorPriest', 'ServiceLeader', '
 export default function NotificationBell({ collapsed }: Props) {
   const nav = useNavigate()
   const { hasRole } = useAuth()
+  const { t } = useT()
   const canBroadcast = hasRole('SuperAdmin') || hasRole('Priest') || hasRole('SeniorPriest') || hasRole('ServiceLeader')
   const btnRef = useRef<HTMLButtonElement>(null)
   const dropRef = useRef<HTMLDivElement>(null)
@@ -117,10 +119,10 @@ export default function NotificationBell({ collapsed }: Props) {
 
   const timeAgo = (iso: string) => {
     const diff = (Date.now() - new Date(iso).getTime()) / 1000
-    if (diff < 60) return 'الآن'
-    if (diff < 3600) return `${Math.floor(diff / 60)} د`
-    if (diff < 86400) return `${Math.floor(diff / 3600)} س`
-    return `${Math.floor(diff / 86400)} ي`
+    if (diff < 60) return t('notifications.now' as any)
+    if (diff < 3600) return t('notifications.minutesAgo' as any, { n: Math.floor(diff / 60) })
+    if (diff < 86400) return t('notifications.hoursAgo' as any, { n: Math.floor(diff / 3600) })
+    return t('notifications.daysAgo' as any, { n: Math.floor(diff / 86400) })
   }
 
   const sendBroadcast = async () => {
@@ -132,10 +134,10 @@ export default function NotificationBell({ collapsed }: Props) {
         title: bcTitle.trim(), body: bcBody.trim(),
         link: bcLink.trim() || null, target: bcTarget,
       })
-      setBcResult(`✅ تم الإرسال لـ ${r.data.sent} مستخدم`)
+      setBcResult(t('notifications.sentTo' as any, { n: r.data.sent }))
       setBcTitle(''); setBcBody(''); setBcLink(''); setBcTarget('All')
     } catch {
-      setBcResult('❌ حدث خطأ، حاول مرة أخرى')
+      setBcResult(t('notifications.sendError' as any))
     } finally {
       setBcSending(false)
     }

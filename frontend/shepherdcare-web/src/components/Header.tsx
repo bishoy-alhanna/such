@@ -60,9 +60,10 @@ export default function Header() {
     {
       label: t('nav.main'),
       items: [
-        { to: '/',         label: t('nav.dashboard'),  icon: '⊞' },
-        { to: '/families', label: t('nav.families'),   icon: '🏠' },
-        { to: '/members',  label: 'Members',            icon: '👤' },
+        { to: '/',            label: t('nav.dashboard'),  icon: '⊞' },
+        { to: '/families',    label: t('nav.families'),   icon: '🏠' },
+        { to: '/members',     label: 'Members',            icon: '👤' },
+        { to: '/leaderboard', label: 'Leaderboard',        icon: '🏆' },
       ],
     },
     ...(isAdmin || isLeader || isPriest || isServant || isDataEntry ? [{
@@ -74,7 +75,6 @@ export default function Header() {
         { to: '/spiritual-records',  label: t('nav.spiritualRecords'), icon: '✝'  },
         ...(isAdmin || isLeader || isServant || isDataEntry
           ? [{ to: '/scores',          label: t('nav.scores'),            icon: '★'  }] : []),
-        { to: '/leaderboard',        label: 'Leaderboard',              icon: '🏆' },
         ...(isAdmin || isLeader
           ? [{ to: '/score-categories', label: t('nav.scoreCategories'), icon: '⊟' }] : []),
       ],

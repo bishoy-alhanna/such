@@ -14,21 +14,10 @@ interface Props {
 
 type Tab = 'basic' | 'work' | 'church' | 'service'
 
-const RELATION_OPTIONS = [
-  { value: 'Head',       label: 'رب الأسرة' },
-  { value: 'Spouse',     label: 'زوجة / زوج' },
-  { value: 'Son',        label: 'ابن' },
-  { value: 'Daughter',   label: 'ابنة' },
-  { value: 'Father',     label: 'أب' },
-  { value: 'Mother',     label: 'أم' },
-  { value: 'Brother',    label: 'أخ' },
-  { value: 'Sister',     label: 'أخت' },
-  { value: 'Grandfather',label: 'جد' },
-  { value: 'Grandmother',label: 'جدة' },
-  { value: 'Other',      label: 'أخرى' },
+const RELATION_VALS = ['Head','Spouse','Son','Daughter','Father','Mother','Brother','Sister','Grandfather','Grandmother','Other'] as const
+const STATUS_VALS: [string, string][] = [
+  ['نشط','Active'],['غير نشط','Inactive'],['متزوج','Married'],['مغترب','Expatriate'],['متوفى','Deceased'],
 ]
-
-const STATUS_OPTIONS = ['نشط', 'غير نشط', 'متزوج', 'مغترب', 'متوفى']
 
 const Row = ({ children }: { children: React.ReactNode }) => (
   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>{children}</div>
@@ -280,7 +269,7 @@ export default function MemberFormModal({ familyId, member, onSaved, onCancel }:
                   <Field label="نوع الفرد *">
                     <select value={relation} onChange={e => setRelation(e.target.value)} required {...inp}>
                       <option value="">— اختر —</option>
-                      {RELATION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      {RELATION_VALS.map(v => <option key={v} value={v}>{t(`rel.${v}` as any)}</option>)}
                     </select>
                   </Field>
                   <Field label="النوع">
@@ -305,7 +294,7 @@ export default function MemberFormModal({ familyId, member, onSaved, onCancel }:
                   <Field label="الحالة">
                     <select value={status} onChange={e => setStatus(e.target.value)} {...inp}>
                       <option value="">— اختر —</option>
-                      {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                      {STATUS_VALS.map(([val, key]) => <option key={val} value={val}>{t(`memberStatus.${key}` as any)}</option>)}
                     </select>
                   </Field>
                   <Field label="الرقم القومي">

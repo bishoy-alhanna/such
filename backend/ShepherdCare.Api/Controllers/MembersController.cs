@@ -25,12 +25,15 @@ namespace ShepherdCare.Api.Controllers
             _notify = notify;
         }
 
-        // GET /api/members?q=&filter=withFamily|withoutFamily&gender=Male|Female&page=1&pageSize=20
+        // GET /api/members?q=&filter=withFamily|withoutFamily&gender=Male|Female&classId=&groupId=&exportAll=false&page=1&pageSize=20
         [HttpGet]
         public async Task<IActionResult> GetAll(
             [FromQuery] string? q,
             [FromQuery] string? filter,
             [FromQuery] string? gender,
+            [FromQuery] Guid? classId,
+            [FromQuery] Guid? groupId,
+            [FromQuery] bool exportAll = false,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
@@ -43,11 +46,26 @@ namespace ShepherdCare.Api.Controllers
             {
                 var userId = Guid.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
                              ?? User.FindFirst("sub")?.Value ?? Guid.Empty.ToString());
-                var classIds = await _db.Set<Servant>()
+                var servantClassIds = await _db.Set<Servant>()
                     .Where(s => s.UserId == userId).Select(s => s.ClassId).ToListAsync();
                 var allowedIds = await _db.Set<ClassEnrollment>()
-                    .Where(e => classIds.Contains(e.ClassId)).Select(e => e.MemberId).Distinct().ToListAsync();
+                    .Where(e => servantClassIds.Contains(e.ClassId)).Select(e => e.MemberId).Distinct().ToListAsync();
                 query = query.Where(m => allowedIds.Contains(m.Id));
+            }
+
+            if (classId.HasValue)
+            {
+                var classMembers = await _db.Set<ClassEnrollment>()
+                    .Where(e => e.ClassId == classId.Value).Select(e => e.MemberId).ToListAsync();
+                query = query.Where(m => classMembers.Contains(m.Id));
+            }
+            else if (groupId.HasValue)
+            {
+                var groupClassIds = await _db.Classes
+                    .Where(c => c.GroupId == groupId.Value).Select(c => c.Id).ToListAsync();
+                var groupMembers = await _db.Set<ClassEnrollment>()
+                    .Where(e => groupClassIds.Contains(e.ClassId)).Select(e => e.MemberId).Distinct().ToListAsync();
+                query = query.Where(m => groupMembers.Contains(m.Id));
             }
 
             if (!string.IsNullOrWhiteSpace(q))
@@ -64,19 +82,24 @@ namespace ShepherdCare.Api.Controllers
                 query = query.Where(m => m.Gender == gender);
 
             var total = await query.CountAsync();
-            var items = await query
-                .OrderBy(m => m.FullName)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
+            var ordered = query.OrderBy(m => m.FullName);
+            var itemsQuery = exportAll
+                ? ordered
+                : ordered.Skip((page - 1) * pageSize).Take(pageSize);
+
+            var items = await itemsQuery
                 .Select(m => new {
                     m.Id, m.FullName, m.FamilyId,
-                    FamilyName = m.Family != null ? m.Family.FamilyName : (string?)null,
+                    FamilyName    = m.Family != null ? m.Family.FamilyName    : (string?)null,
+                    FamilyAddress = m.Family != null ? m.Family.Address        : (string?)null,
+                    FamilyArea    = m.Family != null ? m.Family.Area           : (string?)null,
+                    FamilyPhone   = m.Family != null ? m.Family.PhoneNumbers   : (string?)null,
                     m.Gender, m.DateOfBirth, m.Relation, m.Mobile, m.NationalId,
                     m.Status, m.IsChild, m.PhotoUrl, m.IsServant
                 })
                 .ToListAsync();
 
-            return Ok(new { items, total, totalPages = (int)Math.Ceiling((double)total / pageSize) });
+            return Ok(new { items, total, totalPages = (int)Math.Ceiling((double)total / (exportAll ? 1 : pageSize)) });
         }
 
         [HttpGet("by-family/{familyId}")]

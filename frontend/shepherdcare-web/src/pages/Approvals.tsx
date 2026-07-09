@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import Header from '../components/Header'
 import api from '../services/api'
+import { useT } from '../i18n'
 
 interface PendingScore {
   id: string
@@ -58,6 +59,8 @@ const ROLE_AR: Record<string, string> = {
 }
 
 export default function ApprovalsPage() {
+  const { t } = useT()
+  const roleAr = (role: string) => (t as any)(`role.${role}`) as string || role
   const [tab, setTab] = useState<'users' | 'scores' | 'profiles'>('users')
 
   // Pending user accounts
@@ -103,23 +106,23 @@ export default function ApprovalsPage() {
   // ── User account actions ──────────────────────────────────────────────────
   const approveUser = async (id: string) => {
     const roleId = approveRoleId[id]
-    if (!roleId) { alert('يرجى اختيار الدور'); return }
+    if (!roleId) { alert(t('approvals.selectRoleError' as any)); return }
     setApprovingUser(id)
     try {
       await api.post(`/users/${id}/approve`, { roleId })
       setPendingUsers(prev => prev.filter(u => u.id !== id))
     } catch (err: any) {
-      alert(err?.response?.data?.message ?? 'حدث خطأ')
+      alert(err?.response?.data?.message ?? t('approvals.errorOccurred' as any))
     }
     setApprovingUser(null)
   }
 
   const rejectUser = async (id: string, username: string) => {
-    if (!window.confirm(`رفض وحذف حساب "${username}"؟`)) return
+    if (!window.confirm(t('approvals.confirmReject' as any, { username }))) return
     try {
       await api.delete(`/users/${id}/reject`)
       setPendingUsers(prev => prev.filter(u => u.id !== id))
-    } catch { alert('حدث خطأ') }
+    } catch { alert(t('approvals.errorOccurred' as any)) }
   }
 
   // ── Score actions ─────────────────────────────────────────────────────────
@@ -128,18 +131,18 @@ export default function ApprovalsPage() {
     try {
       await api.post(`/scores/pending/${id}/approve`, { note: reviewNote[id] ?? null })
       setPendingScores(prev => prev.filter(s => s.id !== id))
-    } catch { alert('حدث خطأ') }
+    } catch { alert(t('approvals.errorOccurred' as any)) }
     finally { setProcessing(null) }
   }
 
   const rejectScore = async (id: string) => {
     const note = reviewNote[id]?.trim()
-    if (!note) { alert('يرجى كتابة سبب الرفض'); return }
+    if (!note) { alert(t('approvals.noteRequired' as any)); return }
     setProcessing(id)
     try {
       await api.post(`/scores/pending/${id}/reject`, { note })
       setPendingScores(prev => prev.filter(s => s.id !== id))
-    } catch { alert('حدث خطأ') }
+    } catch { alert(t('approvals.errorOccurred' as any)) }
     finally { setProcessing(null) }
   }
 
@@ -149,18 +152,18 @@ export default function ApprovalsPage() {
     try {
       await api.post(`/members/pending-updates/${id}/approve`, { note: reviewNote[id] ?? null })
       setPendingUpdates(prev => prev.filter(u => u.id !== id))
-    } catch { alert('حدث خطأ') }
+    } catch { alert(t('approvals.errorOccurred' as any)) }
     finally { setProcessing(null) }
   }
 
   const rejectUpdate = async (id: string) => {
     const note = reviewNote[id]?.trim()
-    if (!note) { alert('يرجى كتابة سبب الرفض'); return }
+    if (!note) { alert(t('approvals.noteRequired' as any)); return }
     setProcessing(id)
     try {
       await api.post(`/members/pending-updates/${id}/reject`, { note })
       setPendingUpdates(prev => prev.filter(u => u.id !== id))
-    } catch { alert('حدث خطأ') }
+    } catch { alert(t('approvals.errorOccurred' as any)) }
     finally { setProcessing(null) }
   }
 
@@ -177,7 +180,7 @@ export default function ApprovalsPage() {
       <div className="container">
         <div className="page-header">
           <h2 style={{ margin: 0 }}>
-            ✅ الموافقات المعلقة
+            {t('approvals.title' as any)}
             {totalPending > 0 && (
               <span style={{ marginRight: 10, fontSize: 14, background: '#6366f1', color: '#fff', borderRadius: 20, padding: '2px 10px', fontWeight: 600 }}>
                 {totalPending}
@@ -189,15 +192,15 @@ export default function ApprovalsPage() {
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
           {([
-            ['users',    `👤 طلبات التسجيل${pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ''}`],
-            ['scores',   `📊 طلبات الدرجات${pendingScores.length > 0 ? ` (${pendingScores.length})` : ''}`],
-            ['profiles', `✏️ طلبات تعديل البيانات${pendingUpdates.length > 0 ? ` (${pendingUpdates.length})` : ''}`],
-          ] as const).map(([t, label]) => (
-            <button key={t} onClick={() => setTab(t)} style={{
+            ['users',    `${t('approvals.usersTab' as any)}${pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ''}`],
+            ['scores',   `${t('approvals.scoresTab' as any)}${pendingScores.length > 0 ? ` (${pendingScores.length})` : ''}`],
+            ['profiles', `${t('approvals.profilesTab' as any)}${pendingUpdates.length > 0 ? ` (${pendingUpdates.length})` : ''}`],
+          ] as const).map(([tab_, label]) => (
+            <button key={tab_} onClick={() => setTab(tab_)} style={{
               padding: '8px 20px', borderRadius: 8, border: '2px solid', cursor: 'pointer', fontWeight: 600, fontSize: 14,
-              borderColor: tab === t ? '#6366f1' : '#e5e7eb',
-              background: tab === t ? '#6366f1' : '#fff',
-              color: tab === t ? '#fff' : '#6b7280',
+              borderColor: tab === tab_ ? '#6366f1' : '#e5e7eb',
+              background: tab === tab_ ? '#6366f1' : '#fff',
+              color: tab === tab_ ? '#fff' : '#6b7280',
             }}>{label}</button>
           ))}
         </div>
@@ -220,10 +223,10 @@ export default function ApprovalsPage() {
                       {u.displayName ?? u.username}
                     </div>
                     <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>
-                      اسم المستخدم: <span style={{ fontFamily: 'monospace', background: '#f3f4f6', padding: '1px 6px', borderRadius: 4 }}>{u.username}</span>
+                      {t('approvals.usernameLabel' as any)} <span style={{ fontFamily: 'monospace', background: '#f3f4f6', padding: '1px 6px', borderRadius: 4 }}>{u.username}</span>
                     </div>
                     <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
-                      سُجِّل في: {fmt(u.createdAt)}
+                      {t('approvals.registeredAt' as any)} {fmt(u.createdAt)}
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 220 }}>
@@ -233,7 +236,7 @@ export default function ApprovalsPage() {
                       style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, outline: 'none', cursor: 'pointer' }}
                     >
                       {roles.map(r => (
-                        <option key={r.id} value={r.id}>{ROLE_AR[r.name] ?? r.name}</option>
+                        <option key={r.id} value={r.id}>{roleAr(r.name)}</option>
                       ))}
                     </select>
                     <div style={{ display: 'flex', gap: 6 }}>
@@ -242,14 +245,14 @@ export default function ApprovalsPage() {
                         disabled={approvingUser === u.id}
                         style={{ flex: 1, padding: '7px 0', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}
                       >
-                        {approvingUser === u.id ? '…' : '✓ قبول'}
+                        {approvingUser === u.id ? '…' : t('approvals.accept' as any)}
                       </button>
                       <button
                         onClick={() => rejectUser(u.id, u.username)}
                         disabled={approvingUser === u.id}
                         style={{ flex: 1, padding: '7px 0', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}
                       >
-                        ✕ رفض
+                        {t('approvals.reject' as any)}
                       </button>
                     </div>
                   </div>
@@ -270,7 +273,7 @@ export default function ApprovalsPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
                   <div>
                     <Link to={`/members/${s.memberId}`} style={{ fontWeight: 700, fontSize: 15, color: '#1f2937', textDecoration: 'none' }}>
-                      {s.memberName ?? 'عضو غير معروف'}
+                      {s.memberName ?? t('approvals.unknownMember' as any)}
                     </Link>
                     <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>
                       <span style={{ background: '#ede9fe', color: '#7c3aed', borderRadius: 6, padding: '2px 8px', fontWeight: 600, marginInlineEnd: 8 }}>{s.categoryName}</span>
@@ -278,7 +281,7 @@ export default function ApprovalsPage() {
                     </div>
                     {s.note && <div style={{ fontSize: 13, color: '#374151', marginTop: 6, fontStyle: 'italic' }}>"{s.note}"</div>}
                     <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
-                      قُدِّم بواسطة: {s.submittedByName ?? '—'} — {new Date(s.submittedAt).toLocaleString('ar-EG')}
+                      {t('approvals.submittedBy' as any)} {s.submittedByName ?? '—'} — {new Date(s.submittedAt).toLocaleString('ar-EG')}
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 200 }}>
@@ -291,11 +294,11 @@ export default function ApprovalsPage() {
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button onClick={() => approveScore(s.id)} disabled={processing === s.id}
                         style={{ flex: 1, padding: '6px 0', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
-                        {processing === s.id ? '…' : '✓ قبول'}
+                        {processing === s.id ? '…' : t('approvals.accept' as any)}
                       </button>
                       <button onClick={() => rejectScore(s.id)} disabled={processing === s.id}
                         style={{ flex: 1, padding: '6px 0', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
-                        {processing === s.id ? '…' : '✕ رفض'}
+                        {processing === s.id ? '…' : t('approvals.reject' as any)}
                       </button>
                     </div>
                   </div>
@@ -319,10 +322,10 @@ export default function ApprovalsPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
                     <div style={{ flex: 1 }}>
                       <Link to={`/members/${u.memberId}`} style={{ fontWeight: 700, fontSize: 15, color: '#1f2937', textDecoration: 'none' }}>
-                        {u.memberName ?? 'عضو غير معروف'}
+                        {u.memberName ?? t('approvals.unknownMember' as any)}
                       </Link>
                       <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 10, marginTop: 2 }}>
-                        قُدِّم بواسطة: {u.submittedByName ?? '—'} — {new Date(u.submittedAt).toLocaleString('ar-EG')}
+                        {t('approvals.submittedBy' as any)} {u.submittedByName ?? '—'} — {new Date(u.submittedAt).toLocaleString('ar-EG')}
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
                         {entries.map(([key, val]) => (
@@ -343,11 +346,11 @@ export default function ApprovalsPage() {
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button onClick={() => approveUpdate(u.id)} disabled={processing === u.id}
                           style={{ flex: 1, padding: '6px 0', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
-                          {processing === u.id ? '…' : '✓ قبول'}
+                          {processing === u.id ? '…' : t('approvals.accept' as any)}
                         </button>
                         <button onClick={() => rejectUpdate(u.id)} disabled={processing === u.id}
                           style={{ flex: 1, padding: '6px 0', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
-                          {processing === u.id ? '…' : '✕ رفض'}
+                          {processing === u.id ? '…' : t('approvals.reject' as any)}
                         </button>
                       </div>
                     </div>

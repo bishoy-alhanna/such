@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../auth'
 import Header from '../components/Header'
 import api from '../services/api'
+import { useT } from '../i18n'
 
 interface Member { id: string; fullName: string; familyName?: string }
 interface Assignment {
@@ -31,7 +32,9 @@ const ROLE_COLOR: Record<string, string> = {
 
 export default function VolunteerPage() {
   const { user } = useAuth()
+  const { t } = useT()
   const year = new Date().getFullYear()
+  const roleAr = (role: string) => (t as any)(`volunteerRole.${role}`) as string
 
   const [tab, setTab] = useState<'roster' | 'hours' | 'leaderboard'>('roster')
 
@@ -163,7 +166,7 @@ export default function VolunteerPage() {
   }
 
   const deleteAssignment = async (id: string) => {
-    if (!confirm('حذف هذه المهمة؟')) return
+    if (!confirm(t('volunteer.confirmDelete' as any))) return
     await api.delete(`/volunteer/${id}`); loadAssignments()
   }
 
@@ -177,7 +180,7 @@ export default function VolunteerPage() {
   }
 
   const deleteHours = async (id: string) => {
-    if (!confirm('حذف هذا السجل؟')) return
+    if (!confirm(t('volunteer.confirmDelete' as any))) return
     await api.delete(`/volunteer/service-hours/${id}`); loadHours()
   }
 
@@ -188,12 +191,12 @@ export default function VolunteerPage() {
       <Header />
       <div className="container">
         <div className="page-header">
-          <h2 style={{ margin: 0 }}>🙋 الخدمة والمتطوعون</h2>
+          <h2 style={{ margin: 0 }}>{t('volunteer.title' as any)}</h2>
         </div>
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 24, borderBottom: '2px solid #f3f4f6', flexWrap: 'wrap' }}>
-          {([['roster','جدول الخدمة'],['hours','ساعات الخدمة'],['leaderboard','لوحة الشرف']] as const).map(([k, l]) => (
+          {([['roster', t('volunteer.rosterTab' as any)],['hours', t('volunteer.hoursTab' as any)],['leaderboard', t('volunteer.leaderboardTab' as any)]] as const).map(([k, l]) => (
             <button key={k} onClick={() => setTab(k)} style={{
               background: 'none', border: 'none', cursor: 'pointer',
               padding: '8px 18px', fontSize: 14, fontWeight: 600,
@@ -209,16 +212,16 @@ export default function VolunteerPage() {
             <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
               <select value={filterRole} onChange={e => setFilterRole(e.target.value)}
                 style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 12px', fontSize: 13, outline: 'none' }}>
-                <option value="">كل الأدوار</option>
-                {ROLES.map(r => <option key={r} value={r}>{ROLE_ICON[r]} {ROLE_AR[r]}</option>)}
+                <option value="">{t('common.all')}</option>
+                {ROLES.map(r => <option key={r} value={r}>{ROLE_ICON[r]} {roleAr(r)}</option>)}
               </select>
               <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
                 style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 10px', fontSize: 13, outline: 'none' }} />
               <span style={{ color: '#9ca3af' }}>—</span>
               <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)}
                 style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '7px 10px', fontSize: 13, outline: 'none' }} />
-              <button onClick={loadAssignments} className="btn btn-secondary">بحث</button>
-              <button onClick={() => openAssign()} className="btn btn-primary">+ إضافة</button>
+              <button onClick={loadAssignments} className="btn btn-secondary">{t('common.search')}</button>
+              <button onClick={() => openAssign()} className="btn btn-primary">{t('volunteer.newAssignment' as any)}</button>
             </div>
 
             {/* Role summary chips */}
@@ -231,7 +234,7 @@ export default function VolunteerPage() {
                       background: ROLE_COLOR[r] + '18', color: ROLE_COLOR[r], border: `1px solid ${ROLE_COLOR[r]}44`,
                       padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
                     }}>
-                      {ROLE_ICON[r]} {ROLE_AR[r]} ({cnt})
+                      {ROLE_ICON[r]} {roleAr(r)} ({cnt})
                     </span>
                   )
                 })}
@@ -242,13 +245,13 @@ export default function VolunteerPage() {
               : assignments.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '60px', color: '#9ca3af', background: '#f9fafb', borderRadius: 12, border: '1px solid #e5e7eb' }}>
                   <div style={{ fontSize: 40, marginBottom: 8 }}>📋</div>
-                  <div>لا توجد مهام مسجلة</div>
+                  <div>{t('volunteer.noAssignments' as any)}</div>
                 </div>
               ) : (
                 <div className="card">
                   <div style={{ overflowX: 'auto' }}>
                     <table className="table" style={{ minWidth: 560 }}>
-                      <thead><tr><th>العضو</th><th>الدور</th><th>التاريخ</th><th>ملاحظات</th><th>متكرر</th><th></th></tr></thead>
+                      <thead><tr><th>{t('volunteer.member' as any)}</th><th>{t('volunteer.role' as any)}</th><th>{t('volunteer.assignedDate' as any)}</th><th>{t('volunteer.notes' as any)}</th><th>{t('volunteer.recurring' as any)}</th><th></th></tr></thead>
                       <tbody>
                         {assignments.map(a => (
                           <tr key={a.id}>
@@ -258,7 +261,7 @@ export default function VolunteerPage() {
                             </td>
                             <td>
                               <span style={{ background: ROLE_COLOR[a.role] + '18', color: ROLE_COLOR[a.role], padding: '2px 8px', borderRadius: 6, fontSize: 12, fontWeight: 600 }}>
-                                {ROLE_ICON[a.role]} {ROLE_AR[a.role]}
+                                {ROLE_ICON[a.role]} {roleAr(a.role)}
                               </span>
                             </td>
                             <td style={{ color: '#6b7280', fontSize: 13 }}>{a.assignedDate ? new Date(a.assignedDate).toLocaleDateString('ar-EG') : '—'}</td>
@@ -266,8 +269,8 @@ export default function VolunteerPage() {
                             <td>{a.isRecurring ? '↻' : '—'}</td>
                             <td>
                               <div style={{ display: 'flex', gap: 6 }}>
-                                <button onClick={() => openAssign(a)} className="btn btn-secondary" style={{ fontSize: 11, padding: '3px 8px' }}>تعديل</button>
-                                <button onClick={() => deleteAssignment(a.id)} style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: 6, padding: '3px 8px', fontSize: 11, cursor: 'pointer' }}>حذف</button>
+                                <button onClick={() => openAssign(a)} className="btn btn-secondary" style={{ fontSize: 11, padding: '3px 8px' }}>{t('common.edit')}</button>
+                                <button onClick={() => deleteAssignment(a.id)} style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: 6, padding: '3px 8px', fontSize: 11, cursor: 'pointer' }}>{t('common.delete')}</button>
                               </div>
                             </td>
                           </tr>
@@ -289,20 +292,20 @@ export default function VolunteerPage() {
                 الإجمالي: <strong style={{ color: '#1f2937' }}>{hours.reduce((s, h) => s + h.hours, 0).toFixed(1)} ساعة</strong>
               </div>
               <button onClick={() => { setHMemberId(''); setHDate(new Date().toISOString().slice(0,10)); setHHours(''); setHActivity(''); setHNotes(''); setHMemberSearch(''); setHMemberResults([]); setShowHours(true) }}
-                className="btn btn-primary">+ إضافة ساعات</button>
+                className="btn btn-primary">{t('volunteer.logHours' as any)}</button>
             </div>
 
             {hoursLoading ? <p style={{ textAlign: 'center', color: '#9ca3af' }}>جارٍ التحميل…</p>
               : hours.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '60px', color: '#9ca3af', background: '#f9fafb', borderRadius: 12, border: '1px solid #e5e7eb' }}>
                   <div style={{ fontSize: 40, marginBottom: 8 }}>⏱</div>
-                  <div>لا توجد ساعات مسجلة</div>
+                  <div>{t('volunteer.noHours' as any)}</div>
                 </div>
               ) : (
                 <div className="card">
                   <div style={{ overflowX: 'auto' }}>
                     <table className="table" style={{ minWidth: 500 }}>
-                      <thead><tr><th>العضو</th><th>التاريخ</th><th>الساعات</th><th>النشاط</th><th></th></tr></thead>
+                      <thead><tr><th>{t('volunteer.member' as any)}</th><th>{t('volunteer.date' as any)}</th><th>{t('volunteer.hours' as any)}</th><th>{t('volunteer.activity' as any)}</th><th></th></tr></thead>
                       <tbody>
                         {hours.map(h => (
                           <tr key={h.id}>
@@ -314,7 +317,7 @@ export default function VolunteerPage() {
                             <td style={{ fontWeight: 700, color: '#6366f1' }}>{h.hours}h</td>
                             <td style={{ color: '#374151', fontSize: 13 }}>{h.activity}</td>
                             <td>
-                              <button onClick={() => deleteHours(h.id)} style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: 6, padding: '3px 8px', fontSize: 11, cursor: 'pointer' }}>حذف</button>
+                              <button onClick={() => deleteHours(h.id)} style={{ background: '#fee2e2', color: '#b91c1c', border: 'none', borderRadius: 6, padding: '3px 8px', fontSize: 11, cursor: 'pointer' }}>{t('common.delete')}</button>
                             </td>
                           </tr>
                         ))}
@@ -370,7 +373,7 @@ export default function VolunteerPage() {
         {showAssign && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 440 }}>
-              <h3 style={{ margin: '0 0 20px' }}>{editId ? 'تعديل مهمة' : 'إضافة مهمة خدمة'}</h3>
+              <h3 style={{ margin: '0 0 20px' }}>{editId ? t('volunteer.editAssignment' as any) : t('volunteer.newAssignment' as any)}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ position: 'relative' }}>
                   <label style={{ fontSize: 13, color: '#6b7280', marginBottom: 4, display: 'block' }}>العضو</label>
@@ -394,7 +397,7 @@ export default function VolunteerPage() {
                   <label style={{ fontSize: 13, color: '#6b7280', marginBottom: 4, display: 'block' }}>الدور</label>
                   <select value={aRole} onChange={e => setARole(e.target.value)}
                     style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, outline: 'none' }}>
-                    {ROLES.map(r => <option key={r} value={r}>{ROLE_ICON[r]} {ROLE_AR[r]}</option>)}
+                    {ROLES.map(r => <option key={r} value={r}>{ROLE_ICON[r]} {roleAr(r)}</option>)}
                   </select>
                 </div>
                 <div>
@@ -413,8 +416,8 @@ export default function VolunteerPage() {
                 </label>
               </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-                <button onClick={saveAssignment} disabled={saving || !aMemberId} className="btn btn-primary" style={{ flex: 1 }}>{saving ? 'جارٍ الحفظ…' : 'حفظ'}</button>
-                <button onClick={() => setShowAssign(false)} className="btn btn-secondary" style={{ flex: 1 }}>إلغاء</button>
+                <button onClick={saveAssignment} disabled={saving || !aMemberId} className="btn btn-primary" style={{ flex: 1 }}>{saving ? t('common.saving') : t('common.save')}</button>
+                <button onClick={() => setShowAssign(false)} className="btn btn-secondary" style={{ flex: 1 }}>{t('common.cancel')}</button>
               </div>
             </div>
           </div>
@@ -424,7 +427,7 @@ export default function VolunteerPage() {
         {showHours && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 420 }}>
-              <h3 style={{ margin: '0 0 20px' }}>⏱ تسجيل ساعات خدمة</h3>
+              <h3 style={{ margin: '0 0 20px' }}>{t('volunteer.logHours' as any)}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ position: 'relative' }}>
                   <label style={{ fontSize: 13, color: '#6b7280', marginBottom: 4, display: 'block' }}>العضو</label>
@@ -466,8 +469,8 @@ export default function VolunteerPage() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
-                <button onClick={saveHours} disabled={saving || !hMemberId || !hHours} className="btn btn-primary" style={{ flex: 1 }}>{saving ? 'جارٍ الحفظ…' : 'حفظ'}</button>
-                <button onClick={() => setShowHours(false)} className="btn btn-secondary" style={{ flex: 1 }}>إلغاء</button>
+                <button onClick={saveHours} disabled={saving || !hMemberId || !hHours} className="btn btn-primary" style={{ flex: 1 }}>{saving ? t('common.saving') : t('common.save')}</button>
+                <button onClick={() => setShowHours(false)} className="btn btn-secondary" style={{ flex: 1 }}>{t('common.cancel')}</button>
               </div>
             </div>
           </div>

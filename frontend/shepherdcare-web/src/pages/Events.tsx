@@ -3,6 +3,7 @@ import { useAuth } from '../auth'
 import Header from '../components/Header'
 import api from '../services/api'
 import { getFeastsForMonth } from '../utils/copticFeasts'
+import { useT } from '../i18n'
 
 interface CalEvent {
   id: string
@@ -42,6 +43,8 @@ const EMPTY_FORM = {
 
 export default function EventsPage() {
   const auth = useAuth()
+  const { t } = useT()
+  const typeAr = (type: string) => (t as any)(`eventType.${type}`) as string
   const canWrite = auth.hasRole('SuperAdmin') || auth.hasRole('ServiceLeader') ||
     auth.hasRole('Priest') || auth.hasRole('SeniorPriest') || auth.hasRole('Servant') ||
     auth.hasRole('DataEntry')
@@ -102,7 +105,7 @@ export default function EventsPage() {
   }
 
   async function deleteEvent(id: string) {
-    if (!confirm('حذف هذا الحدث؟')) return
+    if (!confirm(t('events.confirmDelete' as any))) return
     await api.delete(`/events/${id}`)
     setSelected(null)
     load()
@@ -144,25 +147,25 @@ export default function EventsPage() {
   const [showFeasts, setShowFeasts] = useState(true)
   const feastsByDay = showFeasts ? getFeastsForMonth(year, month) : {}
 
-  const monthNames = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر']
-  const dayNames   = ['أحد','إثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت']
+  const monthNames = Array.from({length:12},(_,i) => (t as any)(`month.${i+1}`) as string)
+  const dayNames   = Array.from({length:7}, (_,i) => (t as any)(`weekday.${i}`) as string)
 
   return (
     <div className="page-layout">
       <Header />
       <main className="page-main" style={{ padding: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 700 }}>الأحداث والتقويم</h1>
+          <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 700 }}>{t('events.title' as any)}</h1>
           <div style={{ display: 'flex', gap: '0.5rem', marginInlineStart: 'auto' }}>
             <button className="btn-secondary" onClick={() => setView(view === 'calendar' ? 'list' : 'calendar')}>
-              {view === 'calendar' ? '📋 قائمة' : '📅 تقويم'}
+              {view === 'calendar' ? t('events.listView' as any) : t('events.calendarView' as any)}
             </button>
-            <button className="btn-secondary" onClick={() => setShowFeasts(f => !f)} title="أعياد قبطية">
-              {showFeasts ? '✝️ إخفاء الأعياد' : '✝️ عرض الأعياد'}
+            <button className="btn-secondary" onClick={() => setShowFeasts(f => !f)}>
+              {showFeasts ? t('events.hideFeasts' as any) : t('events.showFeasts' as any)}
             </button>
             {canWrite && (
               <button className="btn-primary" onClick={() => { setForm({ ...EMPTY_FORM }); setEditId(null); setShowForm(true) }}>
-                + حدث جديد
+                {t('events.newEvent' as any)}
               </button>
             )}
           </div>
@@ -240,7 +243,7 @@ export default function EventsPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {events.length === 0 && !loading && (
-              <div style={{ color: '#94a3b8', padding: '2rem', textAlign: 'center' }}>لا توجد أحداث هذا الشهر</div>
+              <div style={{ color: '#94a3b8', padding: '2rem', textAlign: 'center' }}>{t('events.noEvents' as any)}</div>
             )}
             {events.map(ev => (
               <div key={ev.id} onClick={() => setSelected(ev)} style={{
@@ -259,7 +262,7 @@ export default function EventsPage() {
                 <span style={{
                   fontSize: '0.72rem', padding: '2px 8px', borderRadius: 20,
                   background: TYPE_COLOR[ev.type] + '22', color: TYPE_COLOR[ev.type], fontWeight: 600,
-                }}>{TYPE_AR[ev.type] ?? ev.type}</span>
+                }}>{typeAr(ev.type)}</span>
               </div>
             ))}
           </div>
@@ -274,7 +277,7 @@ export default function EventsPage() {
                 <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#94a3b8' }}>×</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem', color: '#475569' }}>
-                <div><b>النوع:</b> {TYPE_AR[selected.type] ?? selected.type}</div>
+                <div><b>النوع:</b> {typeAr(selected.type)}</div>
                 <div><b>البداية:</b> {formatDate(selected.startDateTime)} {formatTime(selected.startDateTime)}</div>
                 {selected.endDateTime && <div><b>النهاية:</b> {formatDate(selected.endDateTime)} {formatTime(selected.endDateTime)}</div>}
                 {selected.location && <div><b>المكان:</b> {selected.location}</div>}
@@ -285,9 +288,9 @@ export default function EventsPage() {
               </div>
               {canWrite && (
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', justifyContent: 'flex-end' }}>
-                  <button className="btn-secondary" onClick={() => openEdit(selected)}>تعديل</button>
+                  <button className="btn-secondary" onClick={() => openEdit(selected)}>{t('common.edit')}</button>
                   <button style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 8, padding: '0.4rem 1rem', cursor: 'pointer' }}
-                    onClick={() => deleteEvent(selected.id)}>حذف</button>
+                    onClick={() => deleteEvent(selected.id)}>{t('common.delete')}</button>
                 </div>
               )}
             </div>
@@ -299,50 +302,50 @@ export default function EventsPage() {
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
             <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', width: '90%', maxWidth: 500, maxHeight: '90vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <h2 style={{ margin: 0, fontSize: '1.1rem' }}>{editId ? 'تعديل الحدث' : 'حدث جديد'}</h2>
+                <h2 style={{ margin: 0, fontSize: '1.1rem' }}>{editId ? t('events.editEvent' as any) : t('events.newEvent' as any)}</h2>
                 <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#94a3b8' }}>×</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <label style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  العنوان *
+                  {t('events.eventTitle' as any)}
                   <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
                 </label>
                 <label style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  النوع
+                  {t('events.type' as any)}
                   <select className="form-input" value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
-                    {EVENT_TYPES.map(t => <option key={t} value={t}>{TYPE_AR[t]}</option>)}
+                    {EVENT_TYPES.map(et => <option key={et} value={et}>{typeAr(et)}</option>)}
                   </select>
                 </label>
                 <label style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  وقت البداية *
+                  {t('events.startTime' as any)}
                   <input type="datetime-local" className="form-input" value={form.startDateTime} onChange={e => setForm(f => ({ ...f, startDateTime: e.target.value }))} />
                 </label>
                 <label style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  وقت النهاية
+                  {t('events.endTime' as any)}
                   <input type="datetime-local" className="form-input" value={form.endDateTime} onChange={e => setForm(f => ({ ...f, endDateTime: e.target.value }))} />
                 </label>
                 <label style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  المكان
+                  {t('events.location' as any)}
                   <input className="form-input" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
                 </label>
                 <label style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  الوصف
+                  {t('events.description' as any)}
                   <textarea className="form-input" rows={2} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
                 </label>
                 <label style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <input type="checkbox" checked={form.isRecurring} onChange={e => setForm(f => ({ ...f, isRecurring: e.target.checked }))} />
-                  حدث متكرر
+                  {t('events.recurring' as any)}
                 </label>
                 {form.isRecurring && (
                   <select className="form-input" value={form.recurrenceType} onChange={e => setForm(f => ({ ...f, recurrenceType: e.target.value }))}>
-                    <option value="Weekly">أسبوعي</option>
-                    <option value="Monthly">شهري</option>
+                    <option value="Weekly">{t('events.weekly' as any)}</option>
+                    <option value="Monthly">{t('events.monthly' as any)}</option>
                   </select>
                 )}
                 <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-                  <button className="btn-secondary" onClick={() => setShowForm(false)}>إلغاء</button>
+                  <button className="btn-secondary" onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
                   <button className="btn-primary" onClick={save} disabled={saving}>
-                    {saving ? 'جاري الحفظ…' : 'حفظ'}
+                    {saving ? t('common.saving') : t('common.save')}
                   </button>
                 </div>
               </div>

@@ -5,6 +5,7 @@ import Header from '../components/Header'
 import MemberFormModal from '../components/MemberFormModal'
 import QRCodeDisplay from '../components/QRCodeDisplay'
 import { useAuth } from '../auth'
+import { useT } from '../i18n'
 import type { Member } from '../types'
 import { formatAge, formatServiceAge, sep15RefYear } from '../utils/ageDisplay'
 
@@ -39,34 +40,11 @@ interface Milestone {
   recordedByName?: string
 }
 
-const MILESTONE_TYPES: { value: string; label: string; icon: string }[] = [
-  { value: 'Baptism',        label: 'عماد',         icon: '💧' },
-  { value: 'Chrismation',    label: 'ميرون',         icon: '🕊️' },
-  { value: 'FirstCommunion', label: 'أول تناول',    icon: '🍷' },
-  { value: 'FirstConfession',label: 'أول اعتراف',   icon: '✝️' },
-  { value: 'Wedding',        label: 'زواج',          icon: '💍' },
-  { value: 'Ordination',     label: 'رسامة',         icon: '👐' },
-  { value: 'Tonsure',        label: 'قصة شعر',       icon: '✂️' },
-  { value: 'Consecration',   label: 'تكريس',         icon: '🕌' },
-  { value: 'Other',          label: 'أخرى',          icon: '⭐' },
-]
-
-const MILESTONE_MAP = Object.fromEntries(MILESTONE_TYPES.map(t => [t.value, t]))
-
-const RELATION_LABELS: Record<string, string> = {
-  Head: 'رب الأسرة', Spouse: 'زوجة / زوج', Son: 'ابن', Daughter: 'ابنة',
-  Father: 'أب', Mother: 'أم', Brother: 'أخ', Sister: 'أخت',
-  Grandfather: 'جد', Grandmother: 'جدة', Other: 'أخرى',
+const MILESTONE_ICONS: Record<string, string> = {
+  Baptism: '💧', Chrismation: '🕊️', FirstCommunion: '🍷', FirstConfession: '✝️',
+  Wedding: '💍', Ordination: '👐', Tonsure: '✂️', Consecration: '🕌', Other: '⭐',
 }
-
-const OCC_LABELS: Record<string, string> = {
-  Student: 'طالب', Working: 'يعمل', Both: 'طالب ويعمل', Neither: 'لا يعمل ولا يدرس',
-}
-
-const QUAL_LABELS: Record<string, string> = {
-  Primary: 'ابتدائي', Preparatory: 'إعدادي', Secondary: 'ثانوي',
-  Diploma: 'دبلوم', Bachelor: 'بكالوريوس', Masters: 'ماجستير', PhD: 'دكتوراه',
-}
+const MILESTONE_VALS = ['Baptism','Chrismation','FirstCommunion','FirstConfession','Wedding','Ordination','Tonsure','Consecration','Other'] as const
 
 function fmt(date?: string) {
   if (!date) return '—'
@@ -96,6 +74,7 @@ function InfoRow({ label, value, mono }: { label: string; value?: string | null;
 }
 
 function DateChip({ label, date }: { label: string; date?: string }) {
+  const { t } = useT()
   const weeksAgo = date ? Math.floor((Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24 * 7)) : null
   const isOld = weeksAgo !== null && weeksAgo > 8
   return (
@@ -111,7 +90,7 @@ function DateChip({ label, date }: { label: string; date?: string }) {
       </div>
       {weeksAgo !== null && (
         <div style={{ fontSize: '11px', color: isOld ? '#ef4444' : '#4ade80', marginTop: 2 }}>
-          منذ {weeksAgo} أسبوع
+          {t('memberProfile.weeksAgo' as any, { n: weeksAgo })}
         </div>
       )}
     </div>
@@ -125,11 +104,17 @@ function lastDate(records: { date: string }[]) {
 export default function MemberProfilePage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
+  const { t } = useT()
   const canManageServants = ['SuperAdmin', 'Priest', 'SeniorPriest'].includes(user?.role ?? '')
   const canManageUsers    = ['SuperAdmin', 'Priest', 'SeniorPriest', 'ServiceLeader'].includes(user?.role ?? '')
   const isMember          = user?.role === 'Member'
-  // true when the logged-in user is viewing their own linked member profile
   const isSelf            = !!user?.familyMemberId && user.familyMemberId === id
+
+  const milestoneTypes = MILESTONE_VALS.map(v => ({ value: v, label: (t as any)(`milestone.${v}`) as string, icon: MILESTONE_ICONS[v] }))
+  const milestoneMap = Object.fromEntries(milestoneTypes.map(m => [m.value, m]))
+  const relLabel = (rel: string) => ((t as any)(`rel.${rel}`) as string) || rel
+  const occLabel = (occ: string) => ({ Student: t('members.student'), Working: t('members.working'), Both: t('members.studentAndWorking'), Neither: t('members.neither') }[occ] ?? occ)
+  const qualLabel = (q: string) => ({ Primary: t('members.qualPrimary'), Preparatory: t('members.qualPreparatory'), Secondary: t('members.qualSecondary'), Diploma: t('members.qualDiploma'), Bachelor: t('members.qualBachelor'), Masters: t('members.qualMaster'), PhD: t('members.qualPhd') }[q] ?? q)
 
   const [member, setMember] = useState<Member | null>(null)
   const [loading, setLoading] = useState(true)
@@ -214,17 +199,17 @@ export default function MemberProfilePage() {
       setMsFormOpen(false)
       setMsDate(''); setMsNote('')
     } catch (e: any) {
-      alert(e?.response?.data?.message || 'حدث خطأ أثناء الحفظ.')
+      alert(e?.response?.data?.message || t('memberProfile.errorSaving' as any))
     }
     setMsAdding(false)
   }
 
   const deleteMilestone = async (msId: string) => {
-    if (!confirm('هل تريد حذف هذه المحطة؟')) return
+    if (!confirm(t('memberProfile.confirmDeleteMilestone' as any))) return
     try {
       await api.delete(`/milestones/${msId}`)
       setMilestones(prev => prev.filter(m => m.id !== msId))
-    } catch { alert('فشل الحذف.') }
+    } catch { alert(t('memberProfile.errorDeleting' as any)) }
   }
 
   const submitSelfEdit = async () => {
@@ -249,7 +234,7 @@ export default function MemberProfilePage() {
       setSelfSaved(true)
       const r = await api.get('/members/me/pending-update')
       if (r.data) setPendingUpdate(r.data)
-    } catch { alert('حدث خطأ أثناء إرسال الطلب.') }
+    } catch { alert(t('memberProfile.errorSendingRequest' as any)) }
     finally { setSelfSaving(false) }
   }
 
@@ -282,7 +267,7 @@ export default function MemberProfilePage() {
       setClassQuery('')
       setClassSuggestions([])
       fetchServantInfo()
-    } catch { alert('فشل في إضافة الفصل.') }
+    } catch { alert(t('memberProfile.errorAddingClass' as any)) }
     setAddingClass(false)
   }
 
@@ -290,7 +275,7 @@ export default function MemberProfilePage() {
     try {
       await api.delete(`/members/${id}/servant-assignments/${assignmentId}`)
       fetchServantInfo()
-    } catch { alert('فشل في حذف التكليف.') }
+    } catch { alert(t('memberProfile.errorRemovingClass' as any)) }
   }
 
   const linkUser = async () => {
@@ -301,23 +286,23 @@ export default function MemberProfilePage() {
       setLinkUsername('')
       fetchServantInfo()
     } catch (e: any) {
-      setLinkErr(e?.response?.data?.message || 'حدث خطأ في الربط')
+      setLinkErr(e?.response?.data?.message || t('memberProfile.errorLinkUser' as any))
     }
     setLinking(false)
   }
 
   const unlinkUser = async () => {
-    if (!confirm('هل أنت متأكد من فك ربط الحساب؟')) return
+    if (!confirm(t('memberProfile.confirmUnlinkUser' as any))) return
     try {
       await api.delete(`/members/${id}/link-user`)
       fetchServantInfo()
-    } catch { alert('فشل في فك الربط.') }
+    } catch { alert(t('memberProfile.errorUnlinkUser' as any)) }
   }
 
   if (loading) return (
     <div><Header />
       <div className="container">
-        <p style={{ textAlign: 'center', padding: '3rem', color: '#888' }}>جاري التحميل…</p>
+        <p style={{ textAlign: 'center', padding: '3rem', color: '#888' }}>{t('memberProfile.loading' as any)}</p>
       </div>
     </div>
   )
@@ -325,7 +310,7 @@ export default function MemberProfilePage() {
   if (!member) return (
     <div><Header />
       <div className="container">
-        <p style={{ textAlign: 'center', padding: '3rem', color: '#888' }}>الفرد غير موجود.</p>
+        <p style={{ textAlign: 'center', padding: '3rem', color: '#888' }}>{t('memberProfile.notFound' as any)}</p>
       </div>
     </div>
   )
@@ -344,7 +329,7 @@ export default function MemberProfilePage() {
         {member.familyId && (
           <div style={{ marginBottom: 16 }}>
             <Link to={`/families/${member.familyId}`} style={{ color: '#6b7280', fontSize: '0.88rem', textDecoration: 'none' }}>
-              ← العودة إلى الأسرة
+              {t('memberProfile.backToFamily' as any)}
             </Link>
           </div>
         )}
@@ -371,7 +356,7 @@ export default function MemberProfilePage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <h1 style={{ margin: 0, fontSize: '1.4rem' }}>{member.fullName}</h1>
               {member.isServant && (
-                <span style={{ padding: '2px 10px', background: '#ede9fe', color: '#6d28d9', borderRadius: 20, fontSize: '12px', fontWeight: 700 }}>✝️ خادم</span>
+                <span style={{ padding: '2px 10px', background: '#ede9fe', color: '#6d28d9', borderRadius: 20, fontSize: '12px', fontWeight: 700 }}>✝️ {t('memberProfile.servant' as any)}</span>
               )}
               {member.status && (
                 <span style={{ padding: '2px 10px', background: '#f0fdf4', color: '#166534', borderRadius: 20, fontSize: '12px', fontWeight: 600 }}>{member.status}</span>
@@ -379,17 +364,17 @@ export default function MemberProfilePage() {
             </div>
 
             <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: '6px 20px', fontSize: '0.88rem', color: '#6b7280' }}>
-              {member.relation && <span>👥 {RELATION_LABELS[member.relation] ?? member.relation}</span>}
-              {member.gender && <span>{member.gender === 'Male' ? '♂ ذكر' : '♀ أنثى'}</span>}
+              {member.relation && <span>👥 {relLabel(member.relation)}</span>}
+              {member.gender && <span>{member.gender === 'Male' ? `♂ ${t('members.genderMale')}` : `♀ ${t('members.genderFemale')}`}</span>}
               {member.dateOfBirth && (
                 <span>
                   🎂 {memberAge} <span style={{ color: '#94a3b8', fontSize: '0.82em' }}>({fmt(member.dateOfBirth)})</span>
                   <span style={{ marginLeft: 8, color: '#6366f1', fontSize: '0.85em', fontWeight: 600 }}>
-                    · Service: {memberServiceAge} <span style={{ fontWeight: 400, color: '#94a3b8' }}>(Sep {sep15RefYear()})</span>
+                    {t('memberProfile.serviceAge' as any, { age: memberServiceAge })} <span style={{ fontWeight: 400, color: '#94a3b8' }}>(Sep {sep15RefYear()})</span>
                   </span>
                 </span>
               )}
-              {member.isChild && <span>👶 طفل</span>}
+              {member.isChild && <span>👶 {t('memberProfile.child' as any)}</span>}
             </div>
 
             {/* Action buttons */}
@@ -407,7 +392,7 @@ export default function MemberProfilePage() {
                     padding: '6px 16px', background: '#4f46e5', color: 'white',
                     borderRadius: 8, fontSize: '0.85rem', border: 'none', cursor: 'pointer', fontWeight: 600
                   }}>
-                  ✏️ تعديل البيانات
+                  {t('memberProfile.editProfileBtn' as any)}
                 </button>
               )}
               {isSelf && (
@@ -417,31 +402,31 @@ export default function MemberProfilePage() {
                     padding: '6px 16px', background: '#4f46e5', color: 'white',
                     borderRadius: 8, fontSize: '0.85rem', border: 'none', cursor: 'pointer', fontWeight: 600
                   }}>
-                  ✏️ طلب تعديل بياناتي
+                  {t('memberProfile.requestUpdateBtn' as any)}
                 </button>
               )}
               {member.familyId ? (
                 <Link to={`/families/${member.familyId}`} style={{
                   padding: '6px 14px', background: '#f1f5f9', color: '#374151',
                   borderRadius: 8, fontSize: '0.85rem', textDecoration: 'none'
-                }}>👨‍👩‍👧 عرض الأسرة</Link>
+                }}>👨‍👩‍👧 {t('memberProfile.viewFamily' as any)}</Link>
               ) : (
                 <span style={{
                   padding: '6px 14px', background: '#fef3c7', color: '#92400e',
                   borderRadius: 8, fontSize: '0.85rem', fontWeight: 600
-                }}>⚠️ بدون أسرة بعد</span>
+                }}>{t('memberProfile.noFamily' as any)}</span>
               )}
               <button onClick={() => setShowQR(v => !v)} style={{
                 padding: '6px 14px', background: showQR ? '#6366f1' : '#f1f5f9',
                 color: showQR ? '#fff' : '#374151',
                 border: 'none', borderRadius: 8, fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600,
-              }}>📷 رمز QR</button>
+              }}>{showQR ? t('memberProfile.hideQR' as any) : t('memberProfile.showQR' as any)}</button>
             </div>
 
             {/* QR Code panel */}
             {showQR && (
               <div style={{ marginTop: 14, padding: '16px 20px', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 12, display: 'inline-block' }}>
-                <QRCodeDisplay value={member.id} size={160} label={`${member.fullName} — معرّف الحضور`} />
+                <QRCodeDisplay value={member.id} size={160} label={t('memberProfile.qrIdentifier' as any, { name: member.fullName })} />
               </div>
             )}
           </div>
@@ -450,68 +435,68 @@ export default function MemberProfilePage() {
         {/* Pending update / saved banners (self-view) */}
         {isSelf && pendingUpdate?.status === 'Pending' && (
           <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 16px', marginBottom: 14, color: '#92400e', fontSize: 14 }}>
-            ⏳ لديك طلب تعديل معلق قيد المراجعة — سيتم تطبيق التغييرات بعد الموافقة.
+            {t('memberProfile.pendingUpdateBanner' as any)}
           </div>
         )}
         {isSelf && selfSaved && (
           <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '10px 16px', marginBottom: 14, color: '#15803d', fontSize: 14 }}>
-            ✅ تم إرسال طلب التعديل للمراجعة بنجاح.
+            {t('memberProfile.updateSentBanner' as any)}
           </div>
         )}
 
         {/* Last-record summary chips */}
         <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: '0.78rem', color: '#9ca3af', fontWeight: 600, marginBottom: 6 }}>آخر سجلات روحية</div>
+          <div style={{ fontSize: '0.78rem', color: '#9ca3af', fontWeight: 600, marginBottom: 6 }}>{t('memberProfile.lastSpiritual' as any)}</div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-            <DateChip label="آخر اعتراف" date={lastDate(spiritualRecords.filter(r => r.type === 'Confession'))} />
-            <DateChip label="آخر تناول"  date={lastDate(spiritualRecords.filter(r => r.type === 'Communion'))} />
-            <DateChip label="آخر قداس"   date={lastDate(spiritualRecords.filter(r => r.type === 'Mass'))} />
-            <DateChip label="آخر مكالمة" date={lastDate(spiritualRecords.filter(r => r.type === 'Call'))} />
+            <DateChip label={t('memberProfile.lastConfession' as any)} date={lastDate(spiritualRecords.filter(r => r.type === 'Confession'))} />
+            <DateChip label={t('memberProfile.lastCommunion' as any)}  date={lastDate(spiritualRecords.filter(r => r.type === 'Communion'))} />
+            <DateChip label={t('memberProfile.lastMass' as any)}       date={lastDate(spiritualRecords.filter(r => r.type === 'Mass'))} />
+            <DateChip label={t('memberProfile.lastCall' as any)}       date={lastDate(spiritualRecords.filter(r => r.type === 'Call'))} />
           </div>
-          <div style={{ fontSize: '0.78rem', color: '#9ca3af', fontWeight: 600, marginBottom: 6 }}>آخر حضور</div>
+          <div style={{ fontSize: '0.78rem', color: '#9ca3af', fontWeight: 600, marginBottom: 6 }}>{t('memberProfile.lastAttendance' as any)}</div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-            <DateChip label="آخر مدرسة الأحد" date={lastDate(attendanceRecords.filter(r => r.attendanceType === 'SundaySchool'))} />
+            <DateChip label={t('memberProfile.lastSundaySchool' as any)} date={lastDate(attendanceRecords.filter(r => r.attendanceType === 'SundaySchool'))} />
           </div>
         </div>
 
         {/* Coptic identity */}
         {(member.baptismName || member.nameDayMonth) && (
-          <Section title="الاسم القبطي وعيد الاسم" icon="✝">
-            <InfoRow label="الاسم القبطي" value={member.baptismName} />
+          <Section title={t('memberProfile.sectCopticName' as any)} icon="✝">
+            <InfoRow label={t('memberProfile.copticName' as any)} value={member.baptismName} />
             {member.nameDayMonth && member.nameDayDay && (
-              <InfoRow label="عيد الاسم" value={`${member.nameDayDay}/${member.nameDayMonth}`} />
+              <InfoRow label={t('memberProfile.nameDay' as any)} value={`${member.nameDayDay}/${member.nameDayMonth}`} />
             )}
           </Section>
         )}
 
         {/* Church */}
         {(member.church || member.confessionFather || member.meetingAttended) && (
-          <Section title="الكنيسة" icon="⛪">
-            <InfoRow label="الكنيسة"     value={member.church} />
-            <InfoRow label="اب الاعتراف" value={member.confessionFather} />
-            <InfoRow label="الاجتماع"    value={member.meetingAttended} />
+          <Section title={t('memberProfile.sectChurch' as any)} icon="⛪">
+            <InfoRow label={t('memberProfile.churchLabel' as any)}           value={member.church} />
+            <InfoRow label={t('memberProfile.confessionFatherLabel' as any)} value={member.confessionFather} />
+            <InfoRow label={t('memberProfile.meetingLabel' as any)}          value={member.meetingAttended} />
           </Section>
         )}
 
         {/* Service + Servant assignments */}
         {member.isServant && (
-          <Section title="الخدمة" icon="✝️">
-            <InfoRow label="نوع الخدمة" value={member.serviceType} />
+          <Section title={t('memberProfile.sectService' as any)} icon="✝️">
+            <InfoRow label={t('memberProfile.serviceTypeLabel' as any)} value={member.serviceType} />
 
             {/* Account info — visible to priests/admin only */}
             {canManageServants && servantInfo?.username && (
               <div style={{ marginTop: 10, padding: '8px 12px', background: '#eff6ff', borderRadius: 8, border: '1px solid #bfdbfe', fontSize: '0.85rem' }}>
-                <span style={{ color: '#6b7280' }}>حساب النظام: </span>
+                <span style={{ color: '#6b7280' }}>{t('memberProfile.systemAccount' as any)} </span>
                 <strong style={{ fontFamily: 'monospace', color: '#1e40af' }}>{servantInfo.username}</strong>
               </div>
             )}
 
             {/* Class assignments */}
             <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#374151', marginBottom: 8 }}>الفصول المكلف بها</div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#374151', marginBottom: 8 }}>{t('memberProfile.assignedClasses' as any)}</div>
 
               {(!servantInfo || servantInfo.assignments.length === 0) ? (
-                <p style={{ color: '#9ca3af', fontSize: '0.85rem', margin: '0 0 8px' }}>لم يُكلَّف بأي فصل بعد.</p>
+                <p style={{ color: '#9ca3af', fontSize: '0.85rem', margin: '0 0 8px' }}>{t('memberProfile.noAssignedClasses' as any)}</p>
               ) : (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                   {servantInfo.assignments.map(a => (
@@ -537,7 +522,7 @@ export default function MemberProfilePage() {
                 <div style={{ position: 'relative', maxWidth: 320 }}>
                   <input
                     type="text"
-                    placeholder="ابحث عن فصل لإضافته…"
+                    placeholder={t('memberProfile.assignClass' as any)}
                     value={classQuery}
                     onChange={e => setClassQuery(e.target.value)}
                     disabled={addingClass}
@@ -569,28 +554,28 @@ export default function MemberProfilePage() {
 
         {/* Work / Education */}
         {(member.occupationStatus || member.qualification || member.college || member.jobTitle) && (
-          <Section title="التعليم والعمل" icon="🎓">
-            <InfoRow label="الحالة"          value={member.occupationStatus ? OCC_LABELS[member.occupationStatus] : undefined} />
-            <InfoRow label="المؤهل"          value={member.qualification ? QUAL_LABELS[member.qualification] : undefined} />
-            <InfoRow label="الكلية"          value={member.college} />
-            <InfoRow label="سنة الدراسة"     value={member.studyYear} />
-            <InfoRow label="الوظيفة"         value={member.jobTitle} />
-            <InfoRow label="تفاصيل الوظيفة"  value={member.jobDetails} />
+          <Section title={t('memberProfile.sectEducation' as any)} icon="🎓">
+            <InfoRow label={t('memberProfile.occupationLabel' as any)}   value={member.occupationStatus ? occLabel(member.occupationStatus) : undefined} />
+            <InfoRow label={t('memberProfile.qualificationLabel' as any)} value={member.qualification ? qualLabel(member.qualification) : undefined} />
+            <InfoRow label={t('memberProfile.collegeLabel' as any)}      value={member.college} />
+            <InfoRow label={t('memberProfile.studyYearLabel' as any)}    value={member.studyYear} />
+            <InfoRow label={t('memberProfile.jobTitleLabel' as any)}     value={member.jobTitle} />
+            <InfoRow label={t('memberProfile.jobDetailsLabel' as any)}   value={member.jobDetails} />
           </Section>
         )}
 
         {/* Other */}
         {(member.nationalId || member.notes) && (
-          <Section title="معلومات أخرى" icon="📋">
-            <InfoRow label="الرقم القومي" value={member.nationalId} mono />
-            <InfoRow label="ملاحظات"      value={member.notes} />
+          <Section title={t('memberProfile.sectOther' as any)} icon="📋">
+            <InfoRow label={t('memberProfile.nationalIdLabel' as any)} value={member.nationalId} mono />
+            <InfoRow label={t('memberProfile.notesLabel' as any)}      value={member.notes} />
           </Section>
         )}
 
         {/* Sacramental Milestones */}
-        <Section title="المحطات الأسرارية" icon="⛪">
+        <Section title={t('memberProfile.sectMilestones' as any)} icon="⛪">
           {milestones.length === 0 && !msFormOpen && (
-            <p style={{ color: '#9ca3af', fontSize: '0.85rem', margin: '0 0 10px' }}>لا توجد محطات أسرارية مسجلة.</p>
+            <p style={{ color: '#9ca3af', fontSize: '0.85rem', margin: '0 0 10px' }}>{t('memberProfile.noMilestones' as any)}</p>
           )}
 
           {/* Timeline */}
@@ -599,7 +584,7 @@ export default function MemberProfilePage() {
               {/* vertical line */}
               <div style={{ position: 'absolute', insetInlineStart: 10, top: 0, bottom: 0, width: 2, background: '#e5e7eb', borderRadius: 2 }} />
               {milestones.map((ms, i) => {
-                const meta = MILESTONE_MAP[ms.type] ?? { label: ms.type, icon: '⭐' }
+                const meta = milestoneMap[ms.type] ?? { label: ms.type, icon: '⭐' }
                 return (
                   <div key={ms.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14, position: 'relative' }}>
                     {/* dot */}
@@ -641,7 +626,7 @@ export default function MemberProfilePage() {
               onClick={() => setMsFormOpen(true)}
               style={{ background: '#f0f9ff', color: '#0369a1', border: '1px dashed #7dd3fc', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: '0.83rem', fontWeight: 600 }}
             >
-              + إضافة محطة أسرارية
+              {t('memberProfile.addMilestone' as any)}
             </button>
           )}
 
@@ -649,33 +634,33 @@ export default function MemberProfilePage() {
             <div style={{ background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 10, padding: '14px 16px', marginTop: 8 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                 <div>
-                  <label style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600, display: 'block', marginBottom: 4 }}>النوع</label>
+                  <label style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600, display: 'block', marginBottom: 4 }}>{t('memberProfile.milestoneType' as any)}</label>
                   <select value={msType} onChange={e => setMsType(e.target.value)}
                     style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: '0.85rem' }}>
-                    {MILESTONE_TYPES.map(t => (
-                      <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
+                    {milestoneTypes.map(m => (
+                      <option key={m.value} value={m.value}>{m.icon} {m.label}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600, display: 'block', marginBottom: 4 }}>التاريخ</label>
+                  <label style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600, display: 'block', marginBottom: 4 }}>{t('memberProfile.milestoneDate' as any)}</label>
                   <input type="date" value={msDate} onChange={e => setMsDate(e.target.value)}
                     style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: '0.85rem', boxSizing: 'border-box' }} />
                 </div>
               </div>
               <div style={{ marginBottom: 10 }}>
-                <label style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600, display: 'block', marginBottom: 4 }}>ملاحظات (اختياري)</label>
-                <input type="text" value={msNote} onChange={e => setMsNote(e.target.value)} placeholder="أي تفاصيل إضافية…"
+                <label style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: 600, display: 'block', marginBottom: 4 }}>{t('memberProfile.milestoneNote' as any)}</label>
+                <input type="text" value={msNote} onChange={e => setMsNote(e.target.value)} placeholder="…"
                   style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: '0.85rem', boxSizing: 'border-box' }} />
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={addMilestone} disabled={!msDate || msAdding}
                   style={{ background: '#4f46e5', color: 'white', border: 'none', borderRadius: 6, padding: '6px 16px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, opacity: !msDate || msAdding ? 0.6 : 1 }}>
-                  {msAdding ? '…' : 'حفظ'}
+                  {msAdding ? t('memberProfile.savingMilestone' as any) : t('memberProfile.saveMilestone' as any)}
                 </button>
                 <button onClick={() => { setMsFormOpen(false); setMsDate(''); setMsNote('') }}
                   style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: '0.85rem' }}>
-                  إلغاء
+                  {t('common.cancel')}
                 </button>
               </div>
             </div>
@@ -684,7 +669,7 @@ export default function MemberProfilePage() {
 
         {/* Score History Chart */}
         {scoreHistory.length > 1 && (
-          <Section title="تاريخ الدرجات" icon="📊">
+          <Section title={t('memberProfile.sectScores' as any)} icon="📊">
             {(() => {
               const W = 480, H = 130, PAD = { top: 10, bottom: 28, left: 32, right: 12 }
               const chartW = W - PAD.left - PAD.right
@@ -729,14 +714,14 @@ export default function MemberProfilePage() {
 
         {/* User Account — admin/priest/leader only */}
         {canManageUsers && (
-          <Section title="حساب المستخدم" icon="🔗">
+          <Section title={t('memberProfile.sectAccount' as any)} icon="🔗">
             {servantInfo?.username ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontFamily: 'monospace', fontSize: '0.9rem', background: '#f0f9ff', padding: '4px 10px', borderRadius: 6, border: '1px solid #bae6fd' }}>
                   👤 {servantInfo.username}
                 </span>
                 <button onClick={unlinkUser} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600 }}>
-                  فك الربط
+                  {t('memberProfile.unlinkAccount' as any)}
                 </button>
               </div>
             ) : (
@@ -744,7 +729,7 @@ export default function MemberProfilePage() {
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <input
                     type="text"
-                    placeholder="اسم المستخدم…"
+                    placeholder={t('memberProfile.linkUserPlaceholder' as any)}
                     value={linkUsername}
                     onChange={e => setLinkUsername(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && linkUser()}
@@ -755,12 +740,12 @@ export default function MemberProfilePage() {
                     disabled={linking || !linkUsername.trim()}
                     style={{ background: '#4f46e5', color: 'white', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, opacity: linking || !linkUsername.trim() ? 0.6 : 1 }}
                   >
-                    {linking ? '…' : 'ربط'}
+                    {linking ? '…' : t('memberProfile.linkButton' as any)}
                   </button>
                   {linkErr && <span style={{ color: '#dc2626', fontSize: '0.82rem' }}>{linkErr}</span>}
                 </div>
                 <p style={{ color: '#9ca3af', fontSize: '0.82rem', margin: '8px 0 0' }}>
-                  ربط هذا الفرد بحساب مستخدم يسمح له بتسجيل الدخول وإرسال درجاته.
+                  {t('memberProfile.linkDescription' as any)}
                 </p>
               </div>
             )}
@@ -786,20 +771,20 @@ export default function MemberProfilePage() {
       {selfEditOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, overflowY: 'auto' }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3 style={{ margin: '0 0 6px' }}>✏️ طلب تعديل بياناتي</h3>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#6b7280' }}>ستُرسل التعديلات للمراجعة قبل التطبيق.</p>
+            <h3 style={{ margin: '0 0 6px' }}>{t('memberProfile.selfEditTitle' as any)}</h3>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#6b7280' }}>{t('memberProfile.selfEditSubtitle' as any)}</p>
 
             {([
-              ['mobile',           '📞 رقم الموبايل',     'text'],
-              ['church',           '⛪ الكنيسة',           'text'],
-              ['meetingAttended',  '📍 الاجتماع',          'text'],
-              ['confessionFather', '✝ أب الاعتراف',        'text'],
-              ['jobTitle',         '💼 الوظيفة',           'text'],
-              ['jobDetails',       '🏢 تفاصيل العمل',      'text'],
-              ['college',          '🎓 الكلية',            'text'],
-              ['studyYear',        '📚 سنة الدراسة',       'text'],
-              ['qualification',    '🏅 المؤهل',            'text'],
-              ['notes',            '📝 ملاحظات',           'textarea'],
+              ['mobile',           t('memberProfile.fieldMobile' as any),        'text'],
+              ['church',           t('memberProfile.fieldChurch' as any),         'text'],
+              ['meetingAttended',  t('memberProfile.fieldMeeting' as any),        'text'],
+              ['confessionFather', t('memberProfile.fieldConfession' as any),     'text'],
+              ['jobTitle',         t('memberProfile.fieldJobTitle' as any),       'text'],
+              ['jobDetails',       t('memberProfile.fieldJobDetails' as any),     'text'],
+              ['college',          t('memberProfile.fieldCollege' as any),        'text'],
+              ['studyYear',        t('memberProfile.fieldStudyYear' as any),      'text'],
+              ['qualification',    t('memberProfile.fieldQualification' as any),  'text'],
+              ['notes',            t('memberProfile.fieldNotes' as any),          'textarea'],
             ] as [string, string, string][]).map(([key, label, type]) => (
               <div key={key} style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 13, color: '#6b7280', marginBottom: 4, display: 'block' }}>{label}</label>
@@ -814,9 +799,9 @@ export default function MemberProfilePage() {
 
             <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
               <button onClick={submitSelfEdit} disabled={selfSaving} className="btn btn-primary" style={{ flex: 1 }}>
-                {selfSaving ? 'جارٍ الإرسال…' : 'إرسال للمراجعة'}
+                {selfSaving ? t('memberProfile.submitting' as any) : t('memberProfile.submitForReview' as any)}
               </button>
-              <button onClick={() => setSelfEditOpen(false)} className="btn btn-secondary" style={{ flex: 1 }}>إلغاء</button>
+              <button onClick={() => setSelfEditOpen(false)} className="btn btn-secondary" style={{ flex: 1 }}>{t('common.cancel')}</button>
             </div>
           </div>
         </div>

@@ -3,6 +3,7 @@ import { useAuth } from '../auth'
 import Header from '../components/Header'
 import api from '../services/api'
 import QRScanner from '../components/QRScanner'
+import { useT } from '../i18n'
 
 interface SearchResult {
   id: string
@@ -28,6 +29,8 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function CheckInPage() {
   const { user } = useAuth()
+  const { t } = useT()
+  const typeLabel = (type: string) => type === 'Mass' ? t('checkin.mass' as any) : t('checkin.sundaySchool' as any)
   const [type, setType] = useState<'Mass' | 'SundaySchool'>('Mass')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
@@ -68,14 +71,14 @@ export default function CheckInPage() {
   const checkIn = async (member: SearchResult) => {
     try {
       await api.post('/checkin', { memberId: member.id, type })
-      showToast(`✅ ${member.fullName} — تم تسجيل الحضور`, true)
+      showToast(t('checkin.checkedIn' as any, { name: member.fullName }), true)
       setQuery(''); setResults([])
       loadToday()
       inputRef.current?.focus()
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status
-      if (status === 409) showToast(`⚠️ ${member.fullName} — مسجل مسبقاً`, false)
-      else showToast('حدث خطأ، حاول مرة أخرى', false)
+      if (status === 409) showToast(t('checkin.alreadyRegistered' as any, { name: member.fullName }), false)
+      else showToast(t('checkin.error' as any), false)
     }
   }
 
@@ -83,13 +86,13 @@ export default function CheckInPage() {
   const handleQRScan = async (memberId: string) => {
     try {
       const r = await api.post<{ memberName: string; attendanceType: string }>('/checkin', { memberId, type })
-      showToast(`✅ ${r.data.memberName} — تم تسجيل الحضور`, true)
+      showToast(t('checkin.checkedIn' as any, { name: r.data.memberName }), true)
       loadToday()
     } catch (err: unknown) {
       const resp = (err as { response?: { status?: number; data?: { message?: string } } })?.response
-      if (resp?.status === 409) showToast(`⚠️ مسجل مسبقاً`, false)
-      else if (resp?.status === 404) showToast('❌ العضو غير موجود', false)
-      else showToast('حدث خطأ، حاول مرة أخرى', false)
+      if (resp?.status === 409) showToast(t('checkin.alreadyRegistered' as any, { name: '' }), false)
+      else if (resp?.status === 404) showToast(t('checkin.memberNotFound' as any), false)
+      else showToast(t('checkin.error' as any), false)
     }
   }
 
@@ -97,7 +100,7 @@ export default function CheckInPage() {
     try {
       await api.delete(`/checkin/${id}`)
       loadToday()
-    } catch { showToast('تعذر التراجع', false) }
+    } catch { showToast(t('checkin.undoError' as any), false) }
   }
 
   const todayFiltered = todayRecords.filter(r => r.attendanceType === type)
@@ -119,7 +122,7 @@ export default function CheckInPage() {
         )}
 
         <div className="page-header">
-          <h2 style={{ margin: 0 }}>🚪 تسجيل الحضور — Check-in</h2>
+          <h2 style={{ margin: 0 }}>{t('checkin.title' as any)}</h2>
         </div>
 
         {/* Type selector */}
@@ -132,7 +135,7 @@ export default function CheckInPage() {
               background: type === t ? '#6366f1' : '#fff',
               color: type === t ? '#fff' : '#6b7280',
               transition: 'all .15s',
-            }}>{TYPE_LABELS[t]}</button>
+            }}>{typeLabel(t)}</button>
           ))}
         </div>
 
@@ -143,7 +146,7 @@ export default function CheckInPage() {
               ref={inputRef}
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="ابحث باسم العضو…"
+              placeholder={t('checkin.searchPlaceholder' as any)}
               autoFocus
               style={{
                 width: '100%', boxSizing: 'border-box',
@@ -199,8 +202,8 @@ export default function CheckInPage() {
                       <div style={{ fontSize: 12, color: '#9ca3af' }}>{m.familyName}</div>
                     </div>
                     {alreadyIn
-                      ? <span style={{ background: '#dcfce7', color: '#16a34a', fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>✓ مسجل</span>
-                      : <span style={{ background: '#6366f1', color: '#fff', fontSize: 13, fontWeight: 700, padding: '6px 14px', borderRadius: 8 }}>تسجيل</span>
+                      ? <span style={{ background: '#dcfce7', color: '#16a34a', fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 20 }}>{t('checkin.registered' as any)}</span>
+                      : <span style={{ background: '#6366f1', color: '#fff', fontSize: 13, fontWeight: 700, padding: '6px 14px', borderRadius: 8 }}>{t('checkin.register' as any)}</span>
                     }
                   </div>
                 )
@@ -213,7 +216,7 @@ export default function CheckInPage() {
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h3 style={{ margin: 0, fontSize: 15 }}>
-              حضور اليوم — {TYPE_LABELS[type]}
+              {t('checkin.todayAttendance' as any)} — {typeLabel(type)}
               <span style={{ marginInlineStart: 10, background: '#6366f1', color: '#fff', fontSize: 13, fontWeight: 700, padding: '2px 10px', borderRadius: 20 }}>
                 {todayFiltered.length}
               </span>
@@ -221,13 +224,13 @@ export default function CheckInPage() {
             <button onClick={loadToday} style={{
               background: 'none', border: '1px solid #e5e7eb', borderRadius: 8,
               padding: '5px 12px', cursor: 'pointer', fontSize: 13, color: '#6b7280',
-            }}>↺ تحديث</button>
+            }}>{t('checkin.refresh' as any)}</button>
           </div>
 
           {todayFiltered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af', background: '#f9fafb', borderRadius: 8 }}>
               <div style={{ fontSize: 36, marginBottom: 8 }}>📋</div>
-              <div>لا يوجد حضور مسجل بعد</div>
+              <div>{t('checkin.noAttendance' as any)}</div>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
@@ -255,7 +258,7 @@ export default function CheckInPage() {
 
         {/* QR info tip */}
         <div style={{ marginTop: 20, padding: '12px 16px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, fontSize: 13, color: '#1d4ed8' }}>
-          💡 اضغط 📷 لمسح رمز QR مباشرة. يمكن عرض رمز QR الخاص بكل عضو من صفحة ملفه الشخصي وطباعته.
+          {t('checkin.qrTip' as any)}
         </div>
 
         {/* QR Scanner overlay */}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../auth'
 import Header from '../components/Header'
 import api from '../services/api'
+import { useT } from '../i18n'
 
 interface Task {
   id: string
@@ -34,6 +35,8 @@ const EMPTY_FORM = { title: '', notes: '', dueDate: '', assignedToUserId: '', re
 
 export default function FollowUpTasksPage() {
   const auth = useAuth()
+  const { t } = useT()
+  const statusAr = (s: string) => (t as any)(`tasks.status${s}`) as string
   const canAdmin = auth.hasRole('SuperAdmin') || auth.hasRole('ServiceLeader') ||
     auth.hasRole('Priest') || auth.hasRole('SeniorPriest')
   const canCreate = canAdmin || auth.hasRole('Servant') || auth.hasRole('DataEntry')
@@ -96,7 +99,7 @@ export default function FollowUpTasksPage() {
   }
 
   async function deleteTask(id: string) {
-    if (!confirm('حذف هذه المهمة؟')) return
+    if (!confirm(t('tasks.confirmDelete' as any))) return
     await api.delete(`/tasks/${id}`)
     load()
   }
@@ -106,10 +109,10 @@ export default function FollowUpTasksPage() {
       <Header />
       <main className="page-main" style={{ padding: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 700 }}>مهام المتابعة</h1>
+          <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 700 }}>{t('tasks.title' as any)}</h1>
           {canCreate && (
             <button className="btn-primary" style={{ marginInlineStart: 'auto' }} onClick={() => setShowForm(true)}>
-              + مهمة جديدة
+              {t('tasks.newTask' as any)}
             </button>
           )}
         </div>
@@ -122,21 +125,21 @@ export default function FollowUpTasksPage() {
               background: filter === s ? '#6366f1' : '#f1f5f9',
               color: filter === s ? '#fff' : '#475569', fontWeight: filter === s ? 600 : 400,
             }}>
-              {s === 'all' ? 'الكل' : STATUS_AR[s]}
+              {s === 'all' ? t('tasks.all' as any) : statusAr(s)}
             </button>
           ))}
           {canAdmin && (
             <label style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', alignItems: 'center', gap: 6, marginInlineStart: '0.5rem' }}>
               <input type="checkbox" checked={myOnly} onChange={e => setMyOnly(e.target.checked)} />
-              مخصصة لي فقط
+              {t('tasks.myTasksOnly' as any)}
             </label>
           )}
         </div>
 
-        {loading && <div style={{ color: '#6366f1', marginBottom: '1rem' }}>جاري التحميل…</div>}
+        {loading && <div style={{ color: '#6366f1', marginBottom: '1rem' }}>{t('tasks.loading' as any)}</div>}
 
         {tasks.length === 0 && !loading && (
-          <div style={{ color: '#94a3b8', padding: '2rem', textAlign: 'center' }}>لا توجد مهام</div>
+          <div style={{ color: '#94a3b8', padding: '2rem', textAlign: 'center' }}>{t('tasks.noTasks' as any)}</div>
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
@@ -152,7 +155,7 @@ export default function FollowUpTasksPage() {
                   <div style={{ fontWeight: 600, marginBottom: 3 }}>{task.title}</div>
                   {task.notes && <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: 3 }}>{task.notes}</div>}
                   <div style={{ fontSize: '0.78rem', color: task.isOverdue ? '#dc2626' : '#94a3b8', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    {task.dueDate && <span>📅 {formatDate(task.dueDate)}{task.isOverdue ? ' — متأخرة' : ''}</span>}
+                    {task.dueDate && <span>📅 {formatDate(task.dueDate)}{task.isOverdue ? ` ${t('tasks.overdue' as any)}` : ''}</span>}
                     {task.assignedToName && <span>👤 {task.assignedToName}</span>}
                     {task.relatedMemberName && (
                       <span>🔗 <Link to={`/members/${task.relatedMemberId}`} style={{ color: '#6366f1' }}>{task.relatedMemberName}</Link></span>
@@ -163,12 +166,12 @@ export default function FollowUpTasksPage() {
                   <span style={{
                     fontSize: '0.72rem', padding: '2px 8px', borderRadius: 20,
                     background: STATUS_COLOR[task.status] + '22', color: STATUS_COLOR[task.status], fontWeight: 600,
-                  }}>{STATUS_AR[task.status]}</span>
+                  }}>{statusAr(task.status)}</span>
                   {task.status === 'Open' && (
-                    <button onClick={() => updateStatus(task.id, 'Done')} title="إنجاز" style={{
+                    <button onClick={() => updateStatus(task.id, 'Done')} title={t('tasks.complete' as any)} style={{
                       background: '#dcfce7', color: '#16a34a', border: 'none', borderRadius: 6,
                       padding: '3px 8px', cursor: 'pointer', fontSize: '0.8rem',
-                    }}>✓ إنجاز</button>
+                    }}>{t('tasks.complete' as any)}</button>
                   )}
                   {canAdmin && (
                     <button onClick={() => deleteTask(task.id)} title="حذف" style={{
@@ -187,35 +190,35 @@ export default function FollowUpTasksPage() {
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
             <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', width: '90%', maxWidth: 460 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <h2 style={{ margin: 0, fontSize: '1.1rem' }}>مهمة متابعة جديدة</h2>
+                <h2 style={{ margin: 0, fontSize: '1.1rem' }}>{t('tasks.newTaskTitle' as any)}</h2>
                 <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#94a3b8' }}>×</button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <label style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  العنوان *
+                  {t('tasks.titleLabel' as any)}
                   <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
                 </label>
                 <label style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  ملاحظات
+                  {t('tasks.notesLabel' as any)}
                   <textarea className="form-input" rows={2} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
                 </label>
                 <label style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  تاريخ الاستحقاق
+                  {t('tasks.dueDateLabel' as any)}
                   <input type="date" className="form-input" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
                 </label>
                 {canAdmin && users.length > 0 && (
                   <label style={{ fontSize: '0.85rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    مسند إلى
+                    {t('tasks.assignTo' as any)}
                     <select className="form-input" value={form.assignedToUserId} onChange={e => setForm(f => ({ ...f, assignedToUserId: e.target.value }))}>
-                      <option value="">أنا (المستخدم الحالي)</option>
+                      <option value="">{t('tasks.myself' as any)}</option>
                       {users.map(u => <option key={u.id} value={u.id}>{u.displayName ?? u.username}</option>)}
                     </select>
                   </label>
                 )}
                 <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                  <button className="btn-secondary" onClick={() => setShowForm(false)}>إلغاء</button>
+                  <button className="btn-secondary" onClick={() => setShowForm(false)}>{t('common.cancel')}</button>
                   <button className="btn-primary" onClick={createTask} disabled={saving}>
-                    {saving ? 'جاري الحفظ…' : 'حفظ'}
+                    {saving ? t('common.saving') : t('common.save')}
                   </button>
                 </div>
               </div>
